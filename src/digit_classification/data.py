@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from collections import Counter
 from loguru import logger
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Subset
@@ -9,14 +10,8 @@ from torchvision.datasets import MNIST
 
 class ClassMapper:
     """
-    Utility for creating a bidirectional mapping between original class labels
-    (e.g., MNIST digits like 0, 5, 8) and contiguous model class indices (0..C-1).
-
-    Example:
-        d = {8: 3500, 0: 1200, 5: 300}
-        mapper = ClassMapper(d)
-        mapper.label_to_index   # {0: 0, 5: 1, 8: 2}
-        mapper.index_to_label   # {0: 0, 1: 5, 2: 8}
+    Provides a bidirectional mapping between the original dataset labels (e.g., MNIST digits 0, 5, 8)
+    and the corresponding model class indices (0, 1, 2).
     """
 
     def __init__(self, label_counts: dict[int, int]) -> None:
@@ -35,7 +30,7 @@ class ClassMapper:
 
     def __repr__(self) -> str:
         return (
-            f"ClassMapper(label_to_index={self.label_to_index}, "
+            f"ClassMapper: (label_to_index={self.label_to_index}, "
             f"index_to_label={self.index_to_label})"
         )
 
@@ -58,17 +53,15 @@ class CustomMNIST(MNIST):
             transform=None,
             download=True,
         )
+        logger.info(
+            f"Original class distribution: {dict(sorted(Counter(self.targets.tolist()).items()))}"
+        )
 
         # Validate user-provided distribution dictionary
         self._validate_class_distribution(mnist_class_distribution)
 
         # Number of classes
         self.num_classes = len(mnist_class_distribution)
-
-        # Create a consistent class index mapping
-        class_mapper: ClassMapper = ClassMapper(mnist_class_distribution)
-        self.label_to_index: dict = class_mapper.label_to_index
-        self.index_to_label: dict = class_mapper.index_to_label
 
         # Store seed and create an RNG
         self.seed = seed
@@ -96,10 +89,22 @@ class CustomMNIST(MNIST):
         # Filter the original MNIST dataset
         self.data = self.data[selected_indices]
         self.targets = self.targets[selected_indices]
+        logger.info(
+            f"Custom class distribution: {dict(sorted(Counter(self.targets.tolist()).items()))}"
+        )
+
+        # Create a consistent class index mapping
+        class_mapper: ClassMapper = ClassMapper(mnist_class_distribution)
+        logger.info(f"{class_mapper}")
+        self.label_to_index: dict = class_mapper.label_to_index
+        self.index_to_label: dict = class_mapper.index_to_label
 
         # Remap labels from raw digits (e.g.: 0->0, 3->1, 8->2)
         remapped = [self.label_to_index[int(lbl)] for lbl in self.targets]
         self.targets = torch.tensor(remapped, dtype=torch.long)
+        logger.info(
+            f"Custom class distribution after mapping: {dict(sorted(Counter(self.targets.tolist()).items()))}"
+        )
 
         # Placeholders
         self.train_mean = None
@@ -172,19 +177,33 @@ class CustomMNIST(MNIST):
         Args:
             indices (np.ndarray): Array of indices to consider (e.g., train + val).
 
-        Returns:
-            None
+        Raises:
+            ValueError: If any class has zero samples.
         """
         # Get labels for the selected subset
         targets = np.asarray(self.targets)[indices]
 
-        # Count occurrences per class
+        # Count occurrences for classes that appear
         classes, counts = np.unique(targets, return_counts=True)
         counts = counts.astype(np.float32)
 
-        # Inverse frequency: more weight to rare classes
+        num_classes = self.num_classes
+        weights = np.zeros(num_classes, dtype=np.float32)
+
+        # Total samples across all present classes
         total = counts.sum()
-        weights = total / counts  # shape [num_classes_subset]
+
+        # Fill in weights for present classes
+        for c, count in zip(classes, counts):
+            weights[int(c)] = total / count
+
+        # Detect missing classes
+        missing = np.where(weights == 0)[0]
+        if len(missing) > 0:
+            raise ValueError(
+                "Class weight calculation failed: the following classes "
+                f"have zero samples in the provided indices: {missing.tolist()}"
+            )
 
         self.class_weights_tensor = torch.tensor(weights, dtype=torch.float32)
 
@@ -243,7 +262,21 @@ class CustomMNIST(MNIST):
         all_train_val_indices = np.concatenate([train_indices, val_indices])
         self._calculate_class_weights(all_train_val_indices)
 
-        # Wrap as Subset views of the same underlying dataset
+        # Create datasets as Subset views of the main dataset
         self.train_dataset = Subset(self, train_indices.tolist())
-        self.eval_dataset = Subset(self, eval_indices.tolist())
         self.val_dataset = Subset(self, val_indices.tolist())
+        self.eval_dataset = Subset(self, eval_indices.tolist())
+
+        # log dataset counts
+        logger.info(
+            f"Training distribution after mapping: "
+            f"{dict(sorted(Counter(self.targets[train_indices].tolist()).items()))}"
+        )
+        logger.info(
+            f"Validation distribution after mapping: "
+            f"{dict(sorted(Counter(self.targets[val_indices].tolist()).items()))}"
+        )
+        logger.info(
+            f"Evaluation distribution after mapping: "
+            f"{dict(sorted(Counter(self.targets[eval_indices].tolist()).items()))}"
+        )

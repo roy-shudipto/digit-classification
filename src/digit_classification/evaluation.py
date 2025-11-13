@@ -3,9 +3,11 @@ from sklearn.metrics import classification_report, confusion_matrix
 from torch.utils.data import DataLoader
 from typing import Tuple, Dict
 
+from .model import DigitClassifier
+
 
 def eval_classifier(
-    model: torch.nn.Module,
+    model: DigitClassifier,
     test_loader: DataLoader,
     index_to_label: Dict[int, int],
 ) -> Tuple[str, torch.Tensor]:
@@ -14,8 +16,8 @@ def eval_classifier(
     and confusion matrix.
 
     Args:
-        model (torch.nn.Module):
-            A trained PyTorch classification model.
+        model (DigitClassifier):
+            A trained PyTorch DigitClassifier model.
 
         test_loader (DataLoader):
             A DataLoader yielding batches of (inputs, targets), where targets
@@ -54,6 +56,7 @@ def eval_classifier(
         labels=label_indices,
         target_names=target_names,
         digits=4,
+        zero_division=0,
     )
 
     cm_np = confusion_matrix(true_labels, pred_labels, labels=label_indices)
