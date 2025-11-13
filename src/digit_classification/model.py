@@ -5,25 +5,25 @@ from lightning.pytorch import LightningModule
 from torchmetrics.classification import MulticlassAccuracy, MulticlassF1Score
 from typing import Tuple, Union
 
-from .data import ClassMapper
-
 
 class DigitClassifier(LightningModule):
     """
-    A convolutional neural network for multiclass digit classification using PyTorch Lightning.
+    A PyTorch Lightning module implementing a convolutional neural network for multiclass
+    digit classification.
 
-    This model consists of:
-    - Two convolutional blocks with batch normalization, ReLU, and max pooling.
-    - A fully connected layer for classification.
-    - Optional class weighting support for imbalanced datasets.
-    - Macro accuracy and macro F1-score metrics on the validation set.
+    The architecture includes:
+    - Two convolutional blocks, each with batch normalization, ReLU activation, and max pooling.
+    - A fully connected output layer for classification.
+    - Optional per-class weighting to address class imbalance.
+    - Macro-averaged accuracy and F1-score computed during validation.
     """
 
     def __init__(
         self,
         num_classes: int,
         lr: float,
-        class_mapper: ClassMapper,
+        mnist_class_distribution: dict,
+        index_to_label: dict,
         seed: int,
         eval_ratio: float,
         val_ratio: float,
@@ -32,32 +32,39 @@ class DigitClassifier(LightningModule):
         class_weights: torch.Tensor | None = None,
     ) -> None:
         """
-        Initialize a DigitClassifier instance.
+        Initialize the DigitClassifier.
 
         Args:
-            num_classes (int): Number of output classes after remapping labels into contiguous
-            indices [0, num_classes-1]. Determined by the CustomMNIST subset.
+            num_classes (int): Number of output classes after remapping MNIST labels into a
+                contiguous range [0, num_classes - 1].
 
-            lr (float): Learning rate for the optimizer.
+            lr (float): Learning rate used by the optimizer.
 
-            class_mapper (ClassMapper): A bidirectional mapping between:
-                - original MNIST digit labels (e.g., {0, 5, 8})
-                - internal training indices used by the model.
+            mnist_class_distribution (dict): Dictionary describing the class frequencies in the
+                custom MNIST subset.
 
-            seed (int): Random seed used to deterministically subsample MNIST.
+            index_to_label (dict): Mapping from internal class indices to the original MNIST
+                labels (e.g., {0: 0, 1: 5, 2: 8}).
 
-            eval_ratio (float): Fraction of the full sampled dataset reserved for the evaluation split.
+            seed (int): Random seed for deterministic dataset subsampling.
 
-            val_ratio (float): Fraction of the evaluation split reserved for the validation subset.
+            eval_ratio (float): Proportion of the sampled dataset allocated to the evaluation split.
 
-            class_weights (torch.Tensor | None): Optional 1D tensor of shape [num_classes] containing per-class
-            weighting coefficients for cross-entropy loss.
+            val_ratio (float): Fraction of the evaluation split reserved for validation.
+
+            mean (float): Mean used for input normalization.
+
+            std (float): Standard deviation used for input normalization.
+
+            class_weights (torch.Tensor | None): Optional 1D tensor of length `num_classes`
+                specifying class weights for the cross-entropy loss to mitigate imbalance.
         """
         super().__init__()
 
         self.num_classes = num_classes
         self.lr = lr
-        self.class_mapper = class_mapper
+        self.mnist_class_distribution = mnist_class_distribution
+        self.index_to_label = index_to_label
         self.seed = seed
         self.eval_ratio = eval_ratio
         self.val_ratio = val_ratio
@@ -111,7 +118,9 @@ class DigitClassifier(LightningModule):
         logits = self.fc(z)
         return logits
 
-    def _step(self, batch: Tuple[torch.Tensor, torch.Tensor], stage: str) -> torch.Tensor:
+    def _step(
+        self, batch: Tuple[torch.Tensor, torch.Tensor], stage: str
+    ) -> torch.Tensor:
         """
         Shared logic for training and validation steps.
 

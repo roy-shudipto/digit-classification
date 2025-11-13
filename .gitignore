@@ -1,0 +1,35 @@
+.tmp
+.envrc
+.venv
+*.secrets
+
+*.pyc
+__pycache__/
+*.egg-info
+.mypy_cache/
+.pytest_cache/
+.python-version
+.vscode/
+.coverage
+pyvenv.cfg
+logs/
+docs/build/doctrees
+wandb/
+build
+.history
+mmdet/mmdetection
+mmdet/datasets
+mmdet/work_dirs
+
+# ML service
+.local/
+
+# Mac stuff
+.DS_Store
+**/.DS_Store
+
+# Models
+models/*.pt
+
+# Cache
+cache

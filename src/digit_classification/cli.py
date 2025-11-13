@@ -9,7 +9,7 @@ from PIL import Image
 from torch.utils.data import DataLoader
 from torchvision import datasets
 
-from .data import ClassMapper, CustomMNIST
+from .data import CustomMNIST
 from .evaluation import eval_classifier
 from .model import DigitClassifier
 
@@ -76,18 +76,24 @@ def download_data(
 # ---------------------------------------------------------
 @app.command()
 def train(
-    data_dir: str = typer.Option(..., "--data-dir", help="Directory containing MNIST data."),
+    data_dir: str = typer.Option(
+        ..., "--data-dir", help="Directory containing MNIST data."
+    ),
     output_dir: str = typer.Option(
         ..., "--output-dir", help="Directory to store checkpoints and logs."
     ),
-    seed: int = typer.Option(11122025, "--seed", help="Random seed for dataset sampling."),
+    seed: int = typer.Option(
+        11122025, "--seed", help="Random seed for dataset sampling."
+    ),
     eval_ratio: float = typer.Option(
         0.20, "--eval_ratio", help="Evaluation set ratio (from full dataset)."
     ),
     val_ratio: float = typer.Option(
         0.15, "--val_ratio", help="Validation split ratio (after eval split)."
     ),
-    epochs: int = typer.Option(20, "--epochs", min=1, max=20, help="Max training epochs."),
+    epochs: int = typer.Option(
+        20, "--epochs", min=1, max=20, help="Max training epochs."
+    ),
     learning_rate: float = typer.Option(
         1e-3, "--learning_rate", help="Learning rate for optimization."
     ),
@@ -123,7 +129,8 @@ def train(
     model = DigitClassifier(
         num_classes=custom_mnist.num_classes,
         lr=learning_rate,
-        class_mapper=custom_mnist.class_mapper,
+        mnist_class_distribution=MNIST_CLASS_DISTRIBUTION,
+        index_to_label=custom_mnist.index_to_label,
         seed=seed,
         eval_ratio=eval_ratio,
         val_ratio=val_ratio,
@@ -185,7 +192,9 @@ def train(
 # ---------------------------------------------------------
 @app.command()
 def evaluate(
-    checkpoint_path: str = typer.Option(..., "--checkpoint-path", help="Path to model checkpoint."),
+    checkpoint_path: str = typer.Option(
+        ..., "--checkpoint-path", help="Path to model checkpoint."
+    ),
     data_dir: str = typer.Option(..., "--data-dir", help="Directory containing MNIST."),
     batch_size: int = typer.Option(32, "--batch-size", min=4),
     num_workers: int = typer.Option(4, "--num_workers", min=0),
@@ -204,18 +213,20 @@ def evaluate(
         model = DigitClassifier.load_from_checkpoint(str(ckpt_path), class_weights=None)
         model.eval()
     except Exception as e:
-        typer.secho(f"Error: failed to restore model from checkpoint: {e}", fg=typer.colors.RED)
+        typer.secho(
+            f"Error: failed to restore model from checkpoint: {e}", fg=typer.colors.RED
+        )
         raise typer.Exit(code=1)
-
-    class_mapper: ClassMapper = model.class_mapper
 
     # Rebuild the dataset exactly like during training
     custom_mnist = CustomMNIST(
         root=data_dir,
-        mnist_class_distribution=MNIST_CLASS_DISTRIBUTION,
+        mnist_class_distribution=model.mnist_class_distribution,
         seed=model.seed,
     )
-    custom_mnist.apply_two_stage_split(eval_ratio=model.eval_ratio, val_ratio=model.val_ratio)
+    custom_mnist.apply_two_stage_split(
+        eval_ratio=model.eval_ratio, val_ratio=model.val_ratio
+    )
 
     eval_loader = DataLoader(
         custom_mnist.val_dataset,
@@ -225,7 +236,9 @@ def evaluate(
     )
 
     # Evaluate model
-    report, cm = eval_classifier(model, eval_loader, index_to_label=class_mapper.index_to_label)
+    report, cm = eval_classifier(
+        model, eval_loader, index_to_label=model.index_to_label
+    )
 
     typer.echo(report)
     typer.echo(f"Confusion matrix:\n{cm}")
@@ -239,7 +252,9 @@ def predict(
     checkpoint_path: str = typer.Option(
         ..., "--checkpoint-path", help="Path to the trained model checkpoint."
     ),
-    input_path: str = typer.Option(..., "--input-path", help="Path to an input image file."),
+    input_path: str = typer.Option(
+        ..., "--input-path", help="Path to an input image file."
+    ),
 ) -> None:
     """
     Predict the digit in a single input image.
@@ -260,10 +275,10 @@ def predict(
         model = DigitClassifier.load_from_checkpoint(str(ckpt_path), class_weights=None)
         model.eval()
     except Exception as e:
-        typer.secho(f"Error: failed to restore model from checkpoint: {e}", fg=typer.colors.RED)
+        typer.secho(
+            f"Error: failed to restore model from checkpoint: {e}", fg=typer.colors.RED
+        )
         raise typer.Exit(code=1)
-
-    class_mapper: ClassMapper = model.class_mapper
 
     # Preprocessing identical to training
     transform = T.Compose(
@@ -271,7 +286,7 @@ def predict(
             T.Grayscale(),  # ensure 1 channel
             T.Resize((28, 28)),  # match training resolution
             T.ToTensor(),  # normalize to [0,1]
-            T.Normalize((model.mean,), (model.std,))
+            T.Normalize((model.mean,), (model.std,)),
         ]
     )
 
@@ -294,11 +309,11 @@ def predict(
     pred_idx = int(probs_tensor.argmax().item())
 
     # Map internal indices to original digit labels
-    probs_dict = {str(class_mapper.index_to_label[i]): probs[i] for i in range(len(probs))}
+    probs_dict = {str(model.index_to_label[i]): probs[i] for i in range(len(probs))}
 
     output = {
         "probs": probs_dict,
-        "prediction": class_mapper.index_to_label[pred_idx],
+        "prediction": model.index_to_label[pred_idx],
     }
 
     typer.echo(json.dumps(output, indent=2))

@@ -23,12 +23,12 @@ class ClassMapper:
         if not label_counts:
             raise ValueError("label_counts dictionary cannot be empty.")
 
-        # Create contiguous indices based on sorted label order (e.g.: 0 -> 0, 3 -> 1, 8 -> 2)
+        # Create contiguous indices based on sorted label order (e.g.: 0->0, 3->1, 8->2)
         self.label_to_index: dict[int, int] = {
             label: idx for idx, label in enumerate(sorted(label_counts.keys()))
         }
 
-        # Reverse lookup: index -> original label (e.g.: 0 -> 0, 1 -> 3, 2 -> 8)
+        # Reverse lookup: index -> original label (e.g.: 0->0, 1->3, 2->8)
         self.index_to_label: dict[int, int] = {
             idx: label for label, idx in self.label_to_index.items()
         }
@@ -66,7 +66,9 @@ class CustomMNIST(MNIST):
         self.num_classes = len(mnist_class_distribution)
 
         # Create a consistent class index mapping
-        self.class_mapper: ClassMapper = ClassMapper(mnist_class_distribution)
+        class_mapper: ClassMapper = ClassMapper(mnist_class_distribution)
+        self.label_to_index: dict = class_mapper.label_to_index
+        self.index_to_label: dict = class_mapper.index_to_label
 
         # Store seed and create an RNG
         self.seed = seed
@@ -86,15 +88,17 @@ class CustomMNIST(MNIST):
                     f"but only {available} available."
                 )
 
-            selected_class_indices = self.rng.choice(class_indices, size=class_size, replace=False)
+            selected_class_indices = self.rng.choice(
+                class_indices, size=class_size, replace=False
+            )
             selected_indices.extend(selected_class_indices.tolist())
 
         # Filter the original MNIST dataset
         self.data = self.data[selected_indices]
         self.targets = self.targets[selected_indices]
 
-        # Remap labels from raw digits (e.g.: 0 -> 0, 3 -> 1, 8 -> 2)
-        remapped = [self.class_mapper.label_to_index[int(lbl)] for lbl in self.targets]
+        # Remap labels from raw digits (e.g.: 0->0, 3->1, 8->2)
+        remapped = [self.label_to_index[int(lbl)] for lbl in self.targets]
         self.targets = torch.tensor(remapped, dtype=torch.long)
 
         # Placeholders
@@ -143,13 +147,17 @@ class CustomMNIST(MNIST):
         # Compute normalization stats from TRAIN ONLY (uint8 -> float in [0,1])
         self.train_mean = self.data[indices].float().mean().div(255.0)
         self.train_std = self.data[indices].float().std().div(255.0)
-        logger.info(f"Train-only mean: {self.train_mean:.4f}, std: {self.train_std:.4f}")
+        logger.info(
+            f"Train-only mean: {self.train_mean:.4f}, std: {self.train_std:.4f}"
+        )
 
         # Set shared transform for all splits
         self.transform = transforms.Compose(
             [
                 transforms.ToTensor(),
-                transforms.Normalize((self.train_mean.item(),), (self.train_std.item(),)),
+                transforms.Normalize(
+                    (self.train_mean.item(),), (self.train_std.item(),)
+                ),
             ]
         )
 
