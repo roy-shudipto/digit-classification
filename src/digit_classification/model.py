@@ -207,8 +207,8 @@ class DigitClassifier(LightningModule):
         val_acc = self.acc.compute()
         val_f1 = self.f1.compute()
 
-        self.log("val_acc_macro", val_acc, prog_bar=True)
-        self.log("val_f1_macro", val_f1, prog_bar=True)
+        self.log("val_acc_macro", val_acc)
+        self.log("val_f1_macro", val_f1)
 
         self.acc.reset()
         self.f1.reset()
