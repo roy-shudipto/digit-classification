@@ -15,8 +15,8 @@ def index_to_label() -> dict[int, int]:
     Return a deterministic mapping from internal class indices to original MNIST labels.
 
     Returns:
-        dict[int, int]: Keys are model class indices (0, 1, 2, ...), and values
-        are the corresponding MNIST digit labels.
+        dict[int, int]: Keys are model class indices (0, 1, 2, ...),
+            and values are the corresponding MNIST digit labels.
     """
     return {0: 0, 1: 5, 2: 8}
 
@@ -27,8 +27,7 @@ def digit_classifier(index_to_label: dict[int, int]) -> DigitClassifier:
     Instantiate a DigitClassifier.
 
     Args:
-        index_to_label (dict[int, int]): Mapping from model output indices to
-            MNIST digit labels.
+        index_to_label (dict[int, int]): Mapping from model output indices to MNIST digit labels.
 
     Returns:
         DigitClassifier: A classifier instance initialized with random parameters.
@@ -63,6 +62,7 @@ def eval_loader() -> DataLoader:
     y = torch.tensor([0, 1, 2, 1, 0, 2], dtype=torch.long)
 
     dataset = TensorDataset(x, y)
+
     return DataLoader(dataset, batch_size=2, shuffle=False)
 
 
@@ -87,8 +87,7 @@ def test_eval_classifier_with_digit_classifier(
     Args:
         digit_classifier (DigitClassifier): The classifier instance under test.
         eval_loader (DataLoader): A dataloader providing synthetic evaluation data.
-        index_to_label (dict[int, int]): Mapping from model output indices to
-            MNIST digit labels.
+        index_to_label (dict[int, int]): Mapping from model output indices to MNIST digit labels.
 
     Returns:
         None.

@@ -16,11 +16,10 @@ def md5_image(image: np.ndarray | torch.Tensor) -> str:
     Compute a deterministic MD5 checksum from an image array or tensor.
 
     Args:
-        image (np.ndarray | torch.Tensor): Image data as either a NumPy array
-            or a PyTorch tensor of any numeric dtype and shape.
+        image (np.ndarray | torch.Tensor): Image data as either a NumPy array or a PyTorch tensor.
 
     Returns:
-        str: The hexadecimal MD5 hash of the image's raw pixel data.
+        str: The MD5 hash of the image's pixel data.
     """
     if isinstance(image, torch.Tensor):
         image = image.numpy()
@@ -155,7 +154,7 @@ def test_dataset_class_distribution_matches_config(
     dataset: CustomMNIST, config: dict[str, Any]
 ) -> None:
     """
-    Check that the realized class distribution matches the requested config.
+    Check that the dataset's class distribution matches the requested config.
 
     Args:
         dataset (CustomMNIST): The constructed dataset instance.
@@ -165,18 +164,18 @@ def test_dataset_class_distribution_matches_config(
         None.
     """
     # Original requested distribution (digit -> count)
-    given_dist = config["class_distribution"]
+    requested_dist = config["class_distribution"]
 
     # Convert requested digits to mapped class indices
     expected_dist = {
-        dataset.label_to_index[digit]: count for digit, count in given_dist.items()
+        dataset.label_to_index[digit]: count for digit, count in requested_dist.items()
     }
 
     # Actual distribution in the dataset after mapping
-    actual_dist = Counter(int(lbl) for lbl in dataset.targets)
+    dataset_dist = Counter(int(lbl) for lbl in dataset.targets)
 
-    # Compare sorted versions (order-independent, easier to debug)
-    assert dict(sorted(actual_dist.items())) == dict(sorted(expected_dist.items()))
+    # Compare sorted versions
+    assert dict(sorted(dataset_dist.items())) == dict(sorted(expected_dist.items()))
 
 
 def test_dataset_reproducible(dataset: CustomMNIST, dataset_copy: CustomMNIST) -> None:
@@ -272,8 +271,8 @@ def test_normalization_from_train_only(dataset: CustomMNIST) -> None:
     train_images = dataset.data[dataset.train_dataset.indices]
 
     # Compute expected mean/std from train data only
-    expected_mean = train_images.float().mean() / 255.0
-    expected_std = train_images.float().std() / 255.0
+    expected_mean = train_images.float().mean().div(255.0)
+    expected_std = train_images.float().std().div(255.0)
 
     # Compare with stored values
     assert abs(dataset.train_mean - expected_mean) < 1e-4
@@ -286,10 +285,7 @@ def test_class_weights_inverse_frequency(dataset: CustomMNIST) -> None:
 
     The class weights stored in the dataset should match the expected formula:
 
-        weight[c] = total_samples / count[c]
-
-    where counts are computed over the combined train + validation subsets
-    after the two-stage split.
+        weight[c] = total_samples / count[c], where counts are computed over the combined train and validation subsets.
 
     Args:
         dataset (CustomMNIST): Dataset instance with train/val splits applied.
@@ -297,7 +293,7 @@ def test_class_weights_inverse_frequency(dataset: CustomMNIST) -> None:
     Returns:
         None.
     """
-    # Gather targets from train + val subsets
+    # Gather targets from train and val subsets
     indices = dataset.train_dataset.indices + dataset.val_dataset.indices
     targets = np.asarray(dataset.targets)[indices]
 
@@ -329,7 +325,7 @@ def test_class_mapper_bidirectional() -> None:
         None.
 
     Raises:
-        AssertionError: If any of the expected mappings do not hold.
+        AssertionError: If any mapping does not match the expected result.
     """
     label_counts = {5: 20, 0: 10, 8: 30}
     mapper = ClassMapper(label_counts)

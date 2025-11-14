@@ -42,7 +42,7 @@ class DigitClassifier(LightningModule):
                 labels (e.g., {0: 0, 1: 5, 2: 8}).
             seed (int): Random seed for deterministic dataset subsampling.
             eval_ratio (float): Proportion of the sampled dataset allocated to the evaluation split.
-            val_ratio (float): Fraction of the evaluation split reserved for validation.
+            val_ratio (float): Fraction of the remaining data (after eval split) reserved for validation.
             mean (float): Mean used for input normalization.
             std (float): Standard deviation used for input normalization.
             class_weights (torch.Tensor | None): Optional 1D tensor of the length of num_classes

@@ -287,12 +287,14 @@ def test_on_validation_epoch_end_logs_and_resets_metrics(
     digit_classifier: DigitClassifier,
 ) -> None:
     """
-    Test that on_validation_epoch_end performs two key actions:
+    Verify that `on_validation_epoch_end` logs validation metrics and resets
+    internal metric states.
 
-    1. Logs the macro-averaged validation metrics ("val_acc_macro" and "val_f1_macro")
-       using the model's log() method.
-    2. Resets the internal TorchMetrics state so that metric objects report that they
-       have not been updated after the reset.
+    Specifically, this test checks that:
+      1. The macro-averaged validation metrics ("val_acc_macro" and "val_f1_macro")
+         are logged via a dummy logger.
+      2. The underlying TorchMetrics objects are reset, causing them to report
+         no updates after the epoch ends.
 
     Args:
         digit_classifier (DigitClassifier): The model instance under test.
@@ -305,7 +307,7 @@ def test_on_validation_epoch_end_logs_and_resets_metrics(
 
     def dummy_logger(name: str, value: torch.Tensor | float) -> None:
         """
-        A minimal stand-in for LightningModule.log used during unit tests.
+        A dummy logging method to replace DigitClassifier.log method.
 
         Args:
             name (str): The name of the metric being logged.
