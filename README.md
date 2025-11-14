@@ -201,9 +201,9 @@ digit-classification predict --checkpoint-path ../mnist_checkpoint/best.ckpt --i
 ```json
 {
   "probs": {
-    "0": 0.008339464664459229,
-    "5": 2.3278232674783794e-06,
-    "8": 0.9916581511497498
+    "0": 0.005845684092491865,
+    "5": 7.426334605042939e-07,
+    "8": 0.9941535592079163
   },
   "prediction": 8
 }

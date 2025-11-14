@@ -171,7 +171,7 @@ def train(
     early_stopping = EarlyStopping(
         monitor="val_f1_macro",
         mode="max",
-        patience=3,
+        patience=5,
     )
 
     # Trainer setup
