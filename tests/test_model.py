@@ -6,11 +6,16 @@ from digit_classification.model import DigitClassifier
 
 
 # =============================================================
-# Fixtures
+# Fixtures for testing Model
 # =============================================================
 @pytest.fixture
 def index_to_label() -> dict[int, int]:
-    """Simple mapping from internal indices to original MNIST labels."""
+    """
+    Provide a simple mapping from internal class indices to original MNIST labels.
+
+    Returns:
+        dict[int, int]: Mapping of internal indices to digit labels.
+    """
     return {0: 0, 1: 5, 2: 8}
 
 
@@ -20,10 +25,10 @@ def digit_classifier(index_to_label: dict[int, int]) -> DigitClassifier:
     Create a DigitClassifier instance without class weights.
 
     Args:
-        index_to_label (dict[int, int]): Mapping from internal class indices to the original MNIST labels.
+        index_to_label (dict[int, int]): Mapping of internal class indices to MNIST labels.
 
     Returns:
-        DigitClassifier: A classifier instance initialized without class weights.
+        DigitClassifier: Model instance initialized without class weights.
     """
     return DigitClassifier(
         num_classes=len(index_to_label),
@@ -42,13 +47,13 @@ def digit_classifier(index_to_label: dict[int, int]) -> DigitClassifier:
 @pytest.fixture
 def digit_classifier_with_weights(index_to_label: dict[int, int]) -> DigitClassifier:
     """
-    Create a DigitClassifier instance with class weights.
+    Create a DigitClassifier instance with predefined class weights.
 
     Args:
-        index_to_label (dict[int, int]): Mapping from internal class indices to the original MNIST labels.
+        index_to_label (dict[int, int]): Mapping of internal class indices to MNIST labels.
 
     Returns:
-        DigitClassifier: A classifier instance initialized with class weights.
+        DigitClassifier: Model instance initialized with class weights.
     """
     num_classes = len(index_to_label)
     class_weights = torch.linspace(1.0, 2.0, steps=num_classes)
@@ -67,17 +72,39 @@ def digit_classifier_with_weights(index_to_label: dict[int, int]) -> DigitClassi
     )
 
 
+@pytest.fixture
+def digit_classifier_no_logging(digit_classifier: DigitClassifier) -> DigitClassifier:
+    """
+    Disable Lightning logging for cleaner unit test output.
+
+    Args:
+        digit_classifier (DigitClassifier): Model instance.
+
+    Returns:
+        DigitClassifier: Model instance with logging overridden.
+    """
+    digit_classifier.log = lambda *args, **kwargs: None
+
+    return digit_classifier
+
+
 # =============================================================
-# Tests
+# Test Model
 # =============================================================
 def test_configure_optimizers_returns_adam(digit_classifier: DigitClassifier) -> None:
     """
-    Test that configure_optimizers returns the correct optimizer and scheduler setup.
+    Verify that configure_optimizers returns a correct optimizer/scheduler setup.
 
-    This test verifies that:
-      - The returned dictionary contains an Adam optimizer.
-      - The scheduler is a ReduceLROnPlateau.
-      - Lightning hyperparameters are stored correctly in self.hparams.
+    This ensures that:
+      - Adam is used as the optimizer.
+      - ReduceLROnPlateau is the scheduler.
+      - Lightning stores hyperparameters in self.hparams.
+
+    Args:
+        digit_classifier (DigitClassifier): Model instance under test.
+
+    Returns:
+        None.
     """
     config = digit_classifier.configure_optimizers()
 
@@ -102,13 +129,10 @@ def test_configure_optimizers_returns_adam(digit_classifier: DigitClassifier) ->
 
 def test_forward_output_shape(digit_classifier: DigitClassifier) -> None:
     """
-    Test that the model's forward pass returns logits of the correct shape.
-
-    This test ensures that passing a batch of images through the model produces a tensor of
-    logits with shape [batch_size, num_classes].
+    Ensure the forward pass returns logits with shape [batch_size, num_classes].
 
     Args:
-        digit_classifier (DigitClassifier): The classifier instance under test.
+        digit_classifier (DigitClassifier): Model instance under test.
 
     Returns:
         None.
@@ -123,85 +147,121 @@ def test_forward_output_shape(digit_classifier: DigitClassifier) -> None:
     assert logits.shape == (batch_size, digit_classifier.num_classes)
 
 
-# =============================================================
-# Training / validation step behavior
-# =============================================================
-
-
-def test_training_step_returns_scalar_loss(digit_classifier: DigitClassifier) -> None:
+def test_forward_with_wrong_input_channels(digit_classifier: DigitClassifier) -> None:
     """
-    Test that training_step computes a valid scalar loss.
+    Ensure the model raises an error when given a 3-channel image instead of 1-channel MNIST input.
 
     Args:
-        digit_classifier (DigitClassifier): The model instance under test.
+        digit_classifier (DigitClassifier): Model instance under test.
 
     Returns:
         None.
     """
-    # Disable Lightning logging to avoid warnings when no Trainer is attached
-    digit_classifier.log = lambda *args, **kwargs: None
+    # Incorrect input: 3-channel image instead of expected 1-channel
+    x = torch.randn(4, 3, 28, 28)
 
-    # Simulate data
-    batch_size = 8
-    x = torch.randn(batch_size, 1, 28, 28)
-    y = torch.randint(0, digit_classifier.num_classes, (batch_size,))
-
-    loss = digit_classifier.training_step((x, y), batch_idx=0)
-
-    assert isinstance(loss, torch.Tensor)
-    assert loss.dim() == 0
+    with pytest.raises(RuntimeError):
+        digit_classifier(x)
 
 
-def test_training_step_uses_class_weights(
-    digit_classifier_with_weights: DigitClassifier,
+def test_training_step_returns_scalar_loss(
+    digit_classifier_no_logging: DigitClassifier,
 ) -> None:
     """
-    Test that training_step correctly applies class weights when provided.
+    Verify that training_step returns a scalar tensor loss.
 
     Args:
-        digit_classifier_with_weights (DigitClassifier): A model instance configured with non-uniform class weights.
+        digit_classifier_no_logging (DigitClassifier): Model instance under test.
+
+    Returns:
+        None.
+    """
+    # Simulate data
+    batch_size = 8
+    x = torch.randn(batch_size, 1, 28, 28)
+    y = torch.randint(0, digit_classifier_no_logging.num_classes, (batch_size,))
+
+    loss = digit_classifier_no_logging.training_step((x, y), batch_idx=0)
+
+    assert isinstance(loss, torch.Tensor)
+    assert loss.dim() == 0
+
+
+def test_training_step_uses_class_weights_returns_scalar_loss(
+    digit_classifier_no_logging: DigitClassifier,
+) -> None:
+    """
+    Ensure training_step correctly incorporates class weights when they are set.
+
+    Args:
+        digit_classifier_no_logging (DigitClassifier): Model instance under test.
 
     Returns:
         None.
     """
     # Disable Lightning logging to avoid warnings when no Trainer is attached
-    digit_classifier_with_weights.log = lambda *args, **kwargs: None
+    digit_classifier_no_logging.class_weights = torch.linspace(
+        1.0, 2.0, steps=digit_classifier_no_logging.num_classes
+    )
 
     # Simulate data
     batch_size = 8
     x = torch.randn(batch_size, 1, 28, 28)
-    y = torch.randint(0, digit_classifier_with_weights.num_classes, (batch_size,))
+    y = torch.randint(0, digit_classifier_no_logging.num_classes, (batch_size,))
 
-    loss = digit_classifier_with_weights.training_step((x, y), batch_idx=0)
+    loss = digit_classifier_no_logging.training_step((x, y), batch_idx=0)
 
     assert isinstance(loss, torch.Tensor)
     assert loss.dim() == 0
+
+
+def test_backward_pass_computes_gradients(
+    digit_classifier_no_logging: DigitClassifier,
+) -> None:
+    """
+    Verify that all trainable parameters receive gradients during backpropagation.
+
+    Args:
+        digit_classifier_no_logging (DigitClassifier): Model instance under test.
+
+    Returns:
+        None.
+    """
+    # Simulate data
+    batch_size = 8
+    x = torch.randn(batch_size, 1, 28, 28)
+    y = torch.randint(0, digit_classifier_no_logging.num_classes, (batch_size,))
+
+    digit_classifier_no_logging.zero_grad()
+    loss = digit_classifier_no_logging.training_step((x, y), batch_idx=0)
+    loss.backward()
+
+    # Verify gradients exist
+    for name, param in digit_classifier_no_logging.named_parameters():
+        assert param.grad is not None, f"No gradient for {name}"
 
 
 def test_validation_step_updates_metrics_consistently(
-    digit_classifier: DigitClassifier,
+    digit_classifier_no_logging: DigitClassifier,
 ) -> None:
     """
-    Test that validation_step updates accuracy and F1 metrics consistently.
+    Ensure validation_step updates accuracy and F1 metrics consistently with expected values.
 
     Args:
-        digit_classifier (DigitClassifier): The model instance under test.
+        digit_classifier_no_logging (DigitClassifier): Model instance under test.
 
     Returns:
         None.
     """
-    # Disable Lightning logging to avoid warnings when no Trainer is attached
-    digit_classifier.log = lambda *args, **kwargs: None
-
     # Simulate data
-    num_classes = digit_classifier.num_classes
+    num_classes = digit_classifier_no_logging.num_classes
     batch_size = 10
     x = torch.randn(batch_size, 1, 28, 28)
     y = torch.randint(0, num_classes, (batch_size,))
 
     # Compute logits once to derive expected metrics.
     with torch.no_grad():
-        logits = digit_classifier(x)
+        logits = digit_classifier_no_logging(x)
     preds = logits.argmax(dim=1)
 
     # Reference metrics using the same configuration.
@@ -214,10 +274,10 @@ def test_validation_step_updates_metrics_consistently(
     expected_f1 = ref_f1.compute()
 
     # Run the actual validation step, which should update the model's metrics.
-    digit_classifier.validation_step((x, y), batch_idx=0)
+    digit_classifier_no_logging.validation_step((x, y), batch_idx=0)
 
-    model_acc = digit_classifier.acc.compute()
-    model_f1 = digit_classifier.f1.compute()
+    model_acc = digit_classifier_no_logging.acc.compute()
+    model_f1 = digit_classifier_no_logging.f1.compute()
 
     assert torch.allclose(model_acc, expected_acc)
     assert torch.allclose(model_f1, expected_f1)
@@ -286,11 +346,6 @@ def test_on_validation_epoch_end_logs_and_resets_metrics(
     assert digit_classifier.f1.update_called is False
 
 
-# =============================================================
-# Prediction step
-# =============================================================
-
-
 def test_predict_step_returns_probabilities(digit_classifier: DigitClassifier) -> None:
     """
     Test that predict_step returns valid probability distributions.
@@ -327,8 +382,7 @@ def test_predict_step_accepts_tuple_batch(digit_classifier: DigitClassifier) -> 
     batch during prediction.
 
     Args:
-        digit_classifier (DigitClassifier):
-            The model instance under test.
+        digit_classifier (DigitClassifier): The model instance under test.
 
     Returns:
         None.

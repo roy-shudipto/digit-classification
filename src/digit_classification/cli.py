@@ -22,13 +22,12 @@ MNIST_CLASS_DISTRIBUTION = {8: 3500, 0: 1200, 5: 300}
 # ---------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------
-def ensure_file(path_str: str, kind: str) -> Path:
+def ensure_file(path_str: str) -> Path:
     """
     Validate that a file path exists and is a regular file.
 
     Args:
         path_str (str): Path provided by the user.
-        kind (str): Human-readable descriptor used in error messages.
 
     Returns:
         Path: A validated and resolved Path object.
@@ -39,11 +38,11 @@ def ensure_file(path_str: str, kind: str) -> Path:
     path = Path(path_str)
 
     if not path.exists():
-        typer.secho(f"Error: {kind} not found at '{path}'.", fg=typer.colors.RED)
+        typer.secho(f"Error: {path} is not found.", fg=typer.colors.RED)
         raise typer.Exit(code=1)
 
     if not path.is_file():
-        typer.secho(f"Error: {kind} path is not a file: '{path}'.", fg=typer.colors.RED)
+        typer.secho(f"Error: {path} is not a file.", fg=typer.colors.RED)
         raise typer.Exit(code=1)
 
     return path
@@ -59,10 +58,14 @@ def download_data(
     )
 ) -> None:
     """
-    Download the MNIST dataset (train).
+    Download the MNIST training dataset into the specified directory.
 
     Args:
-        data_dir (str): Directory where MNIST will be stored.
+        data_dir (str): Directory where the MNIST data will be stored. If the
+            dataset is already present, it will not be downloaded again.
+
+    Returns:
+        None.
     """
     datasets.MNIST(root=data_dir, train=True, download=True)
     typer.echo(f"MNIST dataset successfully downloaded to: {data_dir}")
@@ -96,16 +99,32 @@ def train(
     ),
     batch_size: int = typer.Option(32, "--batch-size", min=4, help="Batch size."),
     num_workers: int = typer.Option(
-        4, "--num-workers", min=0, help="Number of DataLoader worker processes."
+        2, "--num-workers", min=0, help="Number of DataLoader worker processes."
     ),
 ) -> None:
     """
     Train a convolutional digit classifier on a custom MNIST subset.
 
-    This performs:
-    - Dataset sampling based on user-defined digit counts
-    - Train/val split
-    - Lightning training loop with early stopping and checkpointing
+    This command:
+      - Builds a CustomMNIST dataset with a fixed class distribution.
+      - Applies a two-stage split into train/val/eval subsets.
+      - Initializes a DigitClassifier with normalization stats and class weights.
+      - Runs a Lightning training loop with early stopping and checkpointing.
+
+    Args:
+        data_dir (str): Directory containing the MNIST training data.
+        output_dir (str): Directory where checkpoints and logs are written.
+        seed (int): Random seed used for dataset subsampling and splitting.
+        eval_ratio (float): Proportion of the full dataset reserved for evaluation.
+        val_ratio (float): Fraction of the remaining data (after eval split)
+            to use for validation.
+        epochs (int): Maximum number of training epochs (capped at 20).
+        learning_rate (float): Learning rate for the Adam optimizer.
+        batch_size (int): Batch size for training and validation DataLoaders.
+        num_workers (int): Number of worker processes for DataLoaders.
+
+    Returns:
+        None.
     """
     # Ensure reproducibility
     seed_everything(seed, workers=True)
@@ -194,16 +213,29 @@ def evaluate(
     ),
     data_dir: str = typer.Option(..., "--data-dir", help="Directory containing MNIST."),
     batch_size: int = typer.Option(32, "--batch-size", min=4),
-    num_workers: int = typer.Option(4, "--num-workers", min=0),
+    num_workers: int = typer.Option(2, "--num-workers", min=0),
 ) -> None:
     """
-    Evaluate a trained model on the validation set.
+    Evaluate a trained model on the evaluation subset of the custom MNIST dataset.
 
-    Loads the model, reconstructs the dataset split using the same seed/ratios
-    as during training, computes metrics, and prints a classification report.
+    The command:
+      - Validates and loads a saved checkpoint.
+      - Reconstructs the dataset using the same class distribution, seed, and
+        split ratios that were used during training.
+      - Runs eval_classifier to compute metrics and the confusion matrix.
+      - Prints the classification report and confusion matrix to terminal.
+
+    Args:
+        checkpoint_path (str): Path to the trained model checkpoint (.ckpt file).
+        data_dir (str): Directory containing the MNIST training data.
+        batch_size (int): Batch size for the evaluation DataLoader.
+        num_workers (int): Number of worker processes for the evaluation DataLoader.
+
+    Returns:
+        None.
     """
     # Check checkpoint file
-    ckpt_path = ensure_file(checkpoint_path, "checkpoint file")
+    ckpt_path = ensure_file(checkpoint_path)
 
     # Load Lightning checkpoint safely
     try:
@@ -254,18 +286,27 @@ def predict(
     ),
 ) -> None:
     """
-    Predict the digit in a single input image.
+    Predict the digit in a single input image using a trained model checkpoint.
 
-    Steps:
-    - Validate checkpoint + image paths
-    - Restore the trained model from checkpoint
-    - Apply the same preprocessing as during training
-    - Run a forward pass
-    - Output class probabilities + predicted label
+    The command:
+      - Validates the checkpoint and image paths.
+      - Restores the trained DigitClassifier from the checkpoint.
+      - Applies the same preprocessing pipeline used during training
+        (grayscale, resize to 28x28, normalization).
+      - Runs a forward pass to obtain class probabilities.
+      - Prints a JSON object containing per-class probabilities and the
+        predicted digit label.
+
+    Args:
+        checkpoint_path (str): Path to the trained model checkpoint (.ckpt file).
+        input_path (str): Path to the input image to classify.
+
+    Returns:
+        None.
     """
     # Validate both paths
-    ckpt_path = ensure_file(checkpoint_path, "checkpoint file")
-    img_path = ensure_file(input_path, "input image")
+    ckpt_path = ensure_file(checkpoint_path)
+    img_path = ensure_file(input_path)
 
     # Load trained model
     try:

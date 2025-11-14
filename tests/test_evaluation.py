@@ -8,7 +8,7 @@ from digit_classification.model import DigitClassifier
 
 
 # =============================================================
-# Fixtures
+# Fixtures for testing Evaluation
 # =============================================================
 @pytest.fixture
 def index_to_label() -> Dict[int, int]:
@@ -68,7 +68,7 @@ def test_loader() -> DataLoader:
 
 
 # =============================================================
-# Tests
+# Test Evaluation
 # =============================================================
 def test_eval_classifier_with_digit_classifier(
     digit_classifier: DigitClassifier,
@@ -90,6 +90,9 @@ def test_eval_classifier_with_digit_classifier(
         test_loader (DataLoader): A dataloader providing synthetic evaluation data.
         index_to_label (Dict[int, int]): Mapping from model output indices to
             MNIST digit labels.
+
+    Returns:
+        None.
 
     Raises:
         AssertionError: If any validation condition fails.
@@ -114,3 +117,51 @@ def test_eval_classifier_with_digit_classifier(
     assert isinstance(cm, torch.Tensor)
     assert cm.shape == (num_classes, num_classes)
     assert cm.dtype == torch.int64
+
+
+def test_eval_classifier_confusion_matrix_totals(
+    digit_classifier: DigitClassifier,
+    test_loader: DataLoader,
+    index_to_label: Dict[int, int],
+) -> None:
+    """
+    Test that the confusion matrix computed by eval_classifier has consistent totals.
+
+    This verifies three properties:
+      - Each row sum equals the number of true samples per class.
+      - The total sum of all entries equals the total number of samples.
+
+    Args:
+        digit_classifier (DigitClassifier): The trained classifier under test.
+        test_loader (DataLoader): DataLoader providing the evaluation dataset.
+        index_to_label (Dict[int, int]): Mapping of internal class indices to original labels.
+
+    Returns:
+        None.
+    """
+    report, cm = eval_classifier(
+        model=digit_classifier,
+        test_loader=test_loader,
+        index_to_label=index_to_label,
+    )
+
+    # Get expected class distribution from test_loader
+    all_labels = []
+    for _, labels in test_loader:
+        all_labels.extend(labels.tolist())
+
+    expected_counts = torch.bincount(
+        torch.tensor(all_labels), minlength=len(index_to_label)
+    )
+
+    # Row sums should match actual class distribution
+    row_sums = cm.sum(dim=1)
+    assert torch.equal(
+        row_sums, expected_counts
+    ), f"Row sums {row_sums} don't match expected counts {expected_counts}"
+
+    # Total sum should equal number of samples
+    total_samples = len(all_labels)
+    assert (
+        cm.sum() == total_samples
+    ), f"CM total {cm.sum()} doesn't match sample count {total_samples}"

@@ -101,7 +101,7 @@ Output: [B, 3] logits
 
 ---
 
-## Quick Start
+## Quick Start (on Linux)
 
 ### 1. Clone the repository
 ```bash
@@ -112,7 +112,7 @@ cd digit-classification
 ### 2. Create and activate virtual environment
 ```bash
 python3 -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+source .venv/bin/activate
 ```
 
 ### 3. Install package
@@ -138,7 +138,6 @@ digit-classification download-data --data-dir ../mnist
 ```
 Downloads MNIST training data to the specified directory.
 
----
 
 ### 2. Train the model
 ```bash
@@ -154,15 +153,14 @@ digit-classification train --data-dir ../mnist --output-dir ../mnist_checkpoint 
 - `--epochs`: Maximum training epochs, max 20 (default: 20)
 - `--learning-rate`: Learning rate (default: 1e-3)
 - `--batch-size`: Training batch size (default: 32)
-- `--num-workers`: DataLoader worker processes (default: 4)
+- `--num-workers`: DataLoader worker processes (default: 2)
 
 **Output:**
 - Best checkpoint: `{output-dir}/best.ckpt`
 - Training logs: `{output-dir}/lightning_logs/`
 
----
 
-### 3. Evaluate a trained model
+### 3. Evaluate the model
 ```bash
 digit-classification evaluate --checkpoint-path ../mnist_checkpoint/best.ckpt --data-dir ../mnist
 ```
@@ -191,8 +189,6 @@ tensor([[239,   0,   1],
         [  1,   0, 699]])
 ```
 
----
-
 ### 4. Predict a digit in an image
 ```bash
 digit-classification predict --checkpoint-path ../mnist_checkpoint/best.ckpt --input-path ./sample.png
@@ -214,6 +210,8 @@ digit-classification predict --checkpoint-path ../mnist_checkpoint/best.ckpt --i
 }
 ```
 
+---
+
 ## Running Tests
 The specification requires pytest tests for critical functionality.
 ### Install test dependencies
@@ -231,6 +229,8 @@ pytest tests/ -v
 pytest tests/ --cov=digit_classification
 ```
 
+---
+
 ## Development
 ### Format code
 ```bash
@@ -240,6 +240,8 @@ black src/ tests/
 ```bash
 flake8 src/ tests/
 ```
+
+---
 
 ## Author
 **Shudipto Sekhar Roy**  

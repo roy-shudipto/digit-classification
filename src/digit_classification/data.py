@@ -10,7 +10,16 @@ from torchvision.datasets import MNIST
 
 class CustomMNIST(MNIST):
     """
-    A MNIST variant that keeps only specified classes with exact sample counts.
+    A customized MNIST dataset that keeps only specified classes with exact sample counts
+    and provides utilities for stratified splitting, normalization, and class-weight computation.
+
+    This class wraps torchvision's `MNIST` dataset and applies:
+
+    - Filtering to retain only user-specified classes with fixed sample counts.
+    - Remapping from original MNIST digit labels to contiguous class indices.
+    - Train-only normalization (mean/std) computation.
+    - Two-stage stratified splitting into train/validation/eval.
+    - Class weight computation for imbalanced learning.
     """
 
     def __init__(
@@ -20,6 +29,23 @@ class CustomMNIST(MNIST):
         seed: int,
         train: bool = True,
     ) -> None:
+        """
+        Initialize the CustomMNIST.
+
+        Args:
+            root (str): Root directory where MNIST will be downloaded or loaded from.
+            mnist_class_distribution (dict[int, int]):
+                A mapping from original digit labels (0–9) to the number of samples
+                to keep for each class. Example: ``{0: 2000, 3: 1500}``.
+            seed (int): Random seed used for reproducible sampling and data splits.
+            train (bool, optional): Whether to load the MNIST training split.
+                Defaults to True.
+
+        Raises:
+            ValueError: If the class distribution dictionary is invalid or if
+                requested sample counts exceed available MNIST samples.
+
+        """
         super().__init__(
             root=root,
             train=train,
@@ -90,17 +116,19 @@ class CustomMNIST(MNIST):
     @staticmethod
     def _validate_class_distribution(class_dist: dict[int, int]) -> None:
         """
-        Validate the MNIST class distribution dictionary.
+        Validate the user-provided MNIST class distribution.
 
-        Ensures:
-        - Keys are integers between 0 and 9.
+        Ensures that:
+        - Keys are integers in [0, 9].
         - Values are positive integers.
+        - Dictionary is non-empty.
 
         Args:
-            class_dist: Dictionary mapping class labels to sample counts.
+            class_dist (dict[int, int]): Mapping from MNIST class labels to
+                requested sample counts.
 
         Raises:
-            ValueError: If any class label or count is invalid.
+            ValueError: If keys or values are invalid, or if the dictionary is empty.
         """
         if not isinstance(class_dist, dict):
             raise ValueError(
@@ -122,6 +150,16 @@ class CustomMNIST(MNIST):
                 )
 
     def _apply_transformation(self, indices: list[int]):
+        """
+        Compute train-only normalization statistics and apply a consistent
+        transform to all dataset splits.
+
+        Args:
+            indices (list[int]): Indices belonging to the training subset.
+
+        Returns:
+            None
+        """
         # Compute normalization stats from TRAIN ONLY (uint8 -> float in [0,1])
         self.train_mean = self.data[indices].float().mean().div(255.0)
         self.train_std = self.data[indices].float().std().div(255.0)
@@ -141,17 +179,20 @@ class CustomMNIST(MNIST):
 
     def _calculate_class_weights(self, indices: np.ndarray) -> None:
         """
-        Calculate and store class weights based on the label distribution
-        of the given subset of indices (e.g., train + val).
+        Compute inverse-frequency class weights using the labels contained
+        in the given subset of indices.
 
-        The weights are computed as inverse frequency:
-            weight_c = total_samples / count_c
+        weight[c] = total_samples / samples_in_class_c
 
         Args:
-            indices (np.ndarray): Array of indices to consider (e.g., train + val).
+            indices (np.ndarray): Array of dataset indices (e.g., train + val)
+                used to compute class frequency statistics.
+
+        Returns:
+            None
 
         Raises:
-            ValueError: If any class has zero samples.
+            ValueError: If any class receives zero samples in the provided index set.
         """
         # Get labels for the selected subset
         targets = np.asarray(self.targets)[indices]
@@ -182,24 +223,28 @@ class CustomMNIST(MNIST):
 
     def apply_two_stage_split(self, eval_ratio: float, val_ratio: float) -> None:
         """
-        Perform a two-stage stratified split of the dataset into train, eval, and validation subsets.
+        Perform a two-stage stratified dataset split:
 
         Stage 1:
-            - Splits off a portion of the dataset (defined by `eval_ratio`) for evaluation,
-              ensuring that class proportions are preserved.
+            Split off an evaluation subset of size `eval_ratio`.
 
         Stage 2:
-            - From the remaining data, splits off another portion (defined by `val_ratio`)
-              for validation, again maintaining class balance.
+            From the remaining data, split off a validation subset using
+            `val_ratio` (fraction of the remaining data).
+
+        Both stages preserve class distributions (stratification).
 
         Args:
-            eval_ratio (float): Fraction of the full dataset to reserve for evaluation.
-                                Must be between 0 and 1 (exclusive).
-            val_ratio (float): Fraction of the remaining (post-eval) data to reserve for validation.
-                               Must be between 0 and 1 (exclusive).
+            eval_ratio (float): Fraction of total samples reserved for evaluation.
+                Must be in (0, 1).
+            val_ratio (float): Fraction of remaining samples reserved for validation.
+                Must be in (0, 1).
 
         Returns:
             None
+
+        Raises:
+            ValueError: If ratios are invalid or leave no samples for training.
         """
         # Validate ratios
         if not (0 < eval_ratio < 1):
@@ -262,11 +307,26 @@ class CustomMNIST(MNIST):
 
 class ClassMapper:
     """
-    Provides a bidirectional mapping between the original dataset labels (e.g., MNIST digits 0, 5, 8)
-    and the corresponding model class indices (0, 1, 2).
+    Provides a deterministic mapping between original MNIST digit labels
+    and new contiguous class indices.
+
+    Example:
+        label_counts = {0: 2000, 7: 1500, 9: 1200}
+        -> label_to_index  = {0: 0, 7: 1, 9: 2}
+        -> index_to_label  = {0: 0, 1: 7, 2: 9}
     """
 
     def __init__(self, label_counts: dict[int, int]) -> None:
+        """
+        Initialize the ClassMapper.
+
+        Args:
+            label_counts (dict[int, int]): Dictionary whose keys define the set
+                of original labels to map.
+
+        Raises:
+            ValueError: If the dictionary is empty.
+        """
         if not label_counts:
             raise ValueError("label_counts dictionary cannot be empty.")
 

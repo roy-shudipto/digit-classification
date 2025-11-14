@@ -1,4 +1,3 @@
-import copy
 import hashlib
 import numpy as np
 import pytest
@@ -26,12 +25,11 @@ def md5_image(image: np.ndarray | torch.Tensor) -> str:
     if isinstance(image, torch.Tensor):
         image = image.numpy()
 
-    arr = image.astype(np.uint8)
-    return hashlib.md5(arr.tobytes()).hexdigest()
+    return hashlib.md5(image.tobytes()).hexdigest()
 
 
 # =============================================================
-# Fixtures
+# Fixtures for testing CustomMNIST
 # =============================================================
 @pytest.fixture(
     params=[
@@ -151,7 +149,7 @@ def dataset_copy(
 
 
 # =============================================================
-# Class distribution validation tests
+# Test CustomMNIST
 # =============================================================
 def test_validate_class_distribution_rejects_empty() -> None:
     """
@@ -159,6 +157,9 @@ def test_validate_class_distribution_rejects_empty() -> None:
 
     An empty class distribution is considered invalid, and the class-level helper is expected to
     raise ValueError in that case.
+
+    Returns:
+        None.
     """
     with pytest.raises(ValueError):
         CustomMNIST._validate_class_distribution({})
@@ -166,41 +167,118 @@ def test_validate_class_distribution_rejects_empty() -> None:
 
 @pytest.mark.parametrize("eval_ratio", [-0.1, 0.0, 1.0, 1.1])
 def test_apply_two_stage_split_rejects_invalid_eval_ratio(
-    dataset: CustomMNIST, eval_ratio: float
+    config: Dict[str, Any], temp_root: str, eval_ratio: float
 ) -> None:
     """
-    apply_two_stage_split should reject invalid eval_ratio values.
+    Test that apply_two_stage_split rejects invalid eval_ratio values.
 
-    The method is expected to raise a ValueError when the evaluation split ratio is not strictly between 0 and 1.
+    The method should raise a ValueError when eval_ratio is not strictly
+    between 0 and 1.
 
     Args:
-        dataset (CustomMNIST): Prepared dataset fixture.
+        config (dict): Configuration dictionary containing class distribution and seed.
+        temp_root (str): Temporary directory used as dataset root.
         eval_ratio (float): Candidate evaluation split ratio to validate.
+
+    Returns:
+        None.
     """
-    with pytest.raises(ValueError):
-        dataset.apply_two_stage_split(eval_ratio=eval_ratio, val_ratio=0.5)
+    custom_mnist = CustomMNIST(
+        root=temp_root,
+        mnist_class_distribution=config["class_distribution"],
+        seed=config["seed"],
+    )
+
+    with pytest.raises(ValueError) as excinfo:
+        custom_mnist.apply_two_stage_split(eval_ratio=eval_ratio, val_ratio=0.5)
+
+    assert "must be in (0,1)" in str(excinfo.value)
 
 
 @pytest.mark.parametrize("val_ratio", [-0.1, 0.0, 1.0, 1.1])
 def test_apply_two_stage_split_rejects_invalid_val_ratio(
-    dataset: CustomMNIST, val_ratio: float
+    config: Dict[str, Any], temp_root: str, val_ratio: float
 ) -> None:
     """
-    apply_two_stage_split should reject invalid val_ratio values.
+    Test that apply_two_stage_split rejects invalid val_ratio values.
 
-    The method is expected to raise a ``ValueError`` when the validation split ratio is not strictly between 0 and 1.
+    The method should raise a ValueError when val_ratio is not strictly
+    between 0 and 1.
 
     Args:
-        dataset (CustomMNIST): Prepared dataset fixture.
+        config (dict): Configuration dictionary containing class distribution and seed.
+        temp_root (str): Temporary directory used as dataset root.
         val_ratio (float): Candidate validation split ratio to validate.
+
+    Returns:
+        None.
     """
-    with pytest.raises(ValueError):
-        dataset.apply_two_stage_split(eval_ratio=0.2, val_ratio=val_ratio)
+    custom_mnist = CustomMNIST(
+        root=temp_root,
+        mnist_class_distribution=config["class_distribution"],
+        seed=config["seed"],
+    )
+
+    with pytest.raises(ValueError) as excinfo:
+        custom_mnist.apply_two_stage_split(eval_ratio=0.2, val_ratio=val_ratio)
+
+    assert "must be in (0,1)" in str(excinfo.value)
 
 
-# =============================================================
-# Dataset behavior tests
-# =============================================================
+def test_apply_two_stage_split_rejects_combined_ratios_too_large(
+    config: Dict[str, Any], temp_root: str
+) -> None:
+    """
+    Test that apply_two_stage_split rejects invalid split configurations where
+    eval_ratio + val_ratio is greater than or equal to 1.0.
+
+    Args:
+        config (Dict[str, Any]): Dictionary containing class distribution and seed.
+        temp_root (str): Temporary directory used for dataset initialization.
+
+    Returns:
+        None.
+    """
+    custom_mnist = CustomMNIST(
+        root=temp_root,
+        mnist_class_distribution=config["class_distribution"],
+        seed=config["seed"],
+    )
+
+    with pytest.raises(ValueError) as excinfo:
+        custom_mnist.apply_two_stage_split(eval_ratio=0.6, val_ratio=0.5)
+
+    assert "must be < 1.0" in str(excinfo.value)
+
+
+def test_dataset_class_distribution_matches_config(
+    dataset: CustomMNIST, config: Dict[str, Any]
+) -> None:
+    """
+    Check that the realized class distribution matches the requested config.
+
+    Args:
+        dataset (CustomMNIST): The constructed dataset instance.
+        config (Dict[str, Any]): Configuration containing the requested class distribution.
+
+    Returns:
+        None.
+    """
+    # Original requested distribution (digit -> count)
+    given_dist = config["class_distribution"]
+
+    # Convert requested digits to mapped class indices
+    expected_dist = {
+        dataset.label_to_index[digit]: count for digit, count in given_dist.items()
+    }
+
+    # Actual distribution in the dataset after mapping
+    actual_dist = Counter(int(lbl) for lbl in dataset.targets)
+
+    # Compare sorted versions (order-independent, easier to debug)
+    assert dict(sorted(actual_dist.items())) == dict(sorted(expected_dist.items()))
+
+
 def test_dataset_reproducible(dataset: CustomMNIST, dataset_copy: CustomMNIST) -> None:
     """
     Ensure two identically configured CustomMNIST instances are reproducible.
@@ -213,6 +291,9 @@ def test_dataset_reproducible(dataset: CustomMNIST, dataset_copy: CustomMNIST) -
     Args:
         dataset (CustomMNIST): First dataset instance.
         dataset_copy (CustomMNIST): Second dataset instance constructed with the same configuration.
+
+    Returns:
+        None.
     """
     # Test parameter
     val_index = 3
@@ -246,6 +327,9 @@ def test_two_stage_split_sizes(
         dataset (CustomMNIST): Dataset instance that has already been split.
         split_ratios (Dict[str, float]): Ratios for eval and validation splits.
         config (Dict[str, Any]): Configuration containing class distribution.
+
+    Returns:
+        None.
     """
     eval_ratio = split_ratios["eval_ratio"]
     val_ratio = split_ratios["val_ratio"]
@@ -267,49 +351,93 @@ def test_two_stage_split_sizes(
     assert train_size + val_size + eval_size == dataset_size
 
     # Eval size is approx eval_ratio * total
-    assert eval_size == pytest.approx(dataset_size * eval_ratio, rel=0.2)
+    assert eval_size == pytest.approx(dataset_size * eval_ratio, abs=1)
 
     # Val size is approx val_ratio * remaining after eval
-    assert val_size == pytest.approx((dataset_size - eval_size) * val_ratio, rel=0.2)
+    assert val_size == pytest.approx((dataset_size - eval_size) * val_ratio, abs=1)
 
 
-def test_dataset_class_distribution_matches_config(
-    dataset: CustomMNIST, config: Dict[str, Any]
-) -> None:
+def test_normalization_from_train_only(dataset: CustomMNIST) -> None:
     """
-    Check that the realized class distribution matches the requested config.
+    Test that normalization statistics (mean and std) are computed exclusively
+    from the training subset.
 
     Args:
-        dataset (CustomMNIST): The constructed dataset instance.
-        config (Dict[str, Any]): Configuration containing the requested class distribution.
+        dataset (CustomMNIST): The dataset instance with applied two-stage split.
+
+    Returns:
+        None.
     """
-    # Original requested distribution (digit -> count)
-    given_dist = config["class_distribution"]
+    # Get training images (before normalization transform)
+    train_images = dataset.data[dataset.train_dataset.indices]
 
-    # Convert requested digits to mapped class indices
-    expected_dist = {
-        dataset.label_to_index[digit]: count for digit, count in given_dist.items()
-    }
+    # Compute expected mean/std from train data only
+    expected_mean = train_images.float().mean() / 255.0
+    expected_std = train_images.float().std() / 255.0
 
-    # Actual distribution in the dataset after mapping
-    actual_dist = Counter(int(lbl) for lbl in dataset.targets)
+    # Compare with stored values
+    assert abs(dataset.train_mean - expected_mean) < 1e-4
+    assert abs(dataset.train_std - expected_std) < 1e-4
 
-    # Compare sorted versions (order-independent, easier to debug)
-    assert dict(sorted(actual_dist.items())) == dict(sorted(expected_dist.items()))
+
+def test_class_weights_inverse_frequency(dataset: CustomMNIST) -> None:
+    """
+    Test that class weights are computed as inverse class frequency.
+
+    The class weights stored in the dataset should match the expected formula:
+
+        weight[c] = total_samples / count[c]
+
+    where counts are computed over the combined train + validation subsets
+    after the two-stage split.
+
+    Args:
+        dataset (CustomMNIST): Dataset instance with train/val splits applied.
+
+    Returns:
+        None.
+    """
+    # Gather targets from train + val subsets
+    indices = dataset.train_dataset.indices + dataset.val_dataset.indices
+    targets = np.asarray(dataset.targets)[indices]
+
+    # Compute actual class counts
+    classes, counts = np.unique(targets, return_counts=True)
+    counts = counts.astype(np.float32)
+
+    # Expected inverse-frequency weights
+    total = counts.sum()
+    expected_weights = np.zeros(dataset.num_classes, dtype=np.float32)
+
+    for c, count in zip(classes, counts):
+        expected_weights[int(c)] = total / count
+
+    # Compare with dataset-provided weights
+    assert dataset.class_weights_tensor.numpy() == pytest.approx(
+        expected_weights, rel=1e-5, abs=1e-5
+    )
 
 
 def test_calculate_class_weights_raises_if_class_missing(
-    dataset_copy: CustomMNIST, split_ratios: Dict[str, float]
+    config: Dict[str, Any], temp_root: str, split_ratios: Dict[str, float]
 ) -> None:
     """
-    Ensure class weight calculation fails when a class has zero samples.
+    Test that class weight calculation raises an error when a class has zero samples.
 
     Args:
-        dataset_copy (CustomMNIST): A dataset instance used as the base for the simulated failure case.
-        split_ratios (Dict[str, float]): Ratios for eval and validation splits.
+        config (Dict[str, Any]): Configuration containing class distribution and seed.
+        temp_root (str): Temporary directory used as the dataset root.
+        split_ratios (Dict[str, float]): Dictionary with 'eval_ratio' and 'val_ratio' values.
+
+    Returns:
+        None.
     """
-    # Work on a deep copy to avoid mutating the fixture
-    bad_dataset = copy.deepcopy(dataset_copy)
+    # Create fresh dataset
+    bad_dataset = CustomMNIST(
+        root=temp_root,
+        mnist_class_distribution=config["class_distribution"],
+        seed=config["seed"],
+    )
 
     # Simulate an extra class with zero samples
     bad_dataset.num_classes += 1
@@ -320,16 +448,18 @@ def test_calculate_class_weights_raises_if_class_missing(
             val_ratio=split_ratios["val_ratio"],
         )
 
-    msg = str(excinfo.value)
-    assert "zero samples" in msg
+    assert "zero samples" in str(excinfo.value)
 
 
 # =============================================================
-# ClassMapper tests
+# Test ClassMapper
 # =============================================================
 def test_class_mapper_bidirectional() -> None:
     """
     Verify that ClassMapper builds consistent forward and reverse mappings.
+
+    Returns:
+        None.
 
     Raises:
         AssertionError: If any of the expected mappings do not hold.
@@ -350,6 +480,9 @@ def test_class_mapper_rejects_empty_dict() -> None:
 
     An empty mapping provides no information about the available classes and is therefore considered invalid.
     A ValueError is expected.
+
+    Returns:
+        None.
     """
     with pytest.raises(ValueError):
         ClassMapper({})

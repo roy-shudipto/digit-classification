@@ -201,6 +201,9 @@ class DigitClassifier(LightningModule):
     def on_validation_epoch_end(self) -> None:
         """
         Compute and log validation metrics at the end of each epoch.
+
+        Returns:
+            None.
         """
         val_acc = self.acc.compute()
         val_f1 = self.f1.compute()
