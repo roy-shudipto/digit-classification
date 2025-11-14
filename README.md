@@ -95,7 +95,7 @@ Output: [B, 3] logits
 - **LR Scheduler**: ReduceLROnPlateau
   - Monitors `val_f1_macro`
   - Reduces LR by 0.5× when validation F1 plateaus (patience=2)
-- **Early Stopping**: Stops training if no improvement for 3 epochs
+- **Early Stopping**: Stops training if no improvement for 5 epochs
 - **Checkpointing**: Saves best model based on `val_f1_macro`
 - **Max Epochs**: 20 (CPU only, per requirements)
 

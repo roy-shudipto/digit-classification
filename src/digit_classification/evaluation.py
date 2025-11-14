@@ -7,18 +7,18 @@ from .model import DigitClassifier
 
 def eval_classifier(
     model: DigitClassifier,
-    test_loader: DataLoader,
+    eval_loader: DataLoader,
     index_to_label: dict[int, int],
 ) -> tuple[str, torch.Tensor]:
     """
-    Evaluate a classifier on a test dataset and return a classification report
+    Evaluate a classifier on the eval-dataset and return a classification report
     and confusion matrix.
 
     Args:
         model (DigitClassifier):
             A trained PyTorch DigitClassifier model.
 
-        test_loader (DataLoader):
+        eval_loader (DataLoader):
             A DataLoader yielding batches of (inputs, targets), where targets
             are integer class indices in the range 0 to C-1.
 
@@ -36,7 +36,7 @@ def eval_classifier(
     pred_labels = []
 
     with torch.no_grad():
-        for inputs, targets in test_loader:
+        for inputs, targets in eval_loader:
             logits = model(inputs)
             predicted = logits.argmax(dim=1)
 

@@ -301,21 +301,20 @@ def test_on_validation_epoch_end_logs_and_resets_metrics(
         None.
     """
     # Capture logged values instead of relying on Lightning's trainer
-    logged: dict[str, tuple[torch.Tensor, bool]] = {}
+    logged: dict[str, torch.Tensor] = {}
 
-    def dummy_logger(name: str, value, prog_bar: bool = False) -> None:
+    def dummy_logger(name: str, value: torch.Tensor | float) -> None:
         """
         A minimal stand-in for LightningModule.log used during unit tests.
 
         Args:
             name (str): The name of the metric being logged.
-            value: The value associated with the metric (typically a tensor or float).
-            prog_bar (bool, optional): Whether the value would be shown in the progress bar.
+            value (torch.Tensor | float): The value associated with the metric (typically a tensor or float).
 
         Returns:
             None.
         """
-        logged[name] = (value, prog_bar)
+        logged[name] = value
 
     digit_classifier.log = dummy_logger
 

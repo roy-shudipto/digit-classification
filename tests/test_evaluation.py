@@ -48,7 +48,7 @@ def digit_classifier(index_to_label: dict[int, int]) -> DigitClassifier:
 
 
 @pytest.fixture
-def test_loader() -> DataLoader:
+def eval_loader() -> DataLoader:
     """
     Create a small, deterministic DataLoader containing synthetic MNIST-like data.
 
@@ -71,7 +71,7 @@ def test_loader() -> DataLoader:
 # =============================================================
 def test_eval_classifier_with_digit_classifier(
     digit_classifier: DigitClassifier,
-    test_loader: DataLoader,
+    eval_loader: DataLoader,
     index_to_label: dict[int, int],
 ) -> None:
     """
@@ -86,7 +86,7 @@ def test_eval_classifier_with_digit_classifier(
 
     Args:
         digit_classifier (DigitClassifier): The classifier instance under test.
-        test_loader (DataLoader): A dataloader providing synthetic evaluation data.
+        eval_loader (DataLoader): A dataloader providing synthetic evaluation data.
         index_to_label (dict[int, int]): Mapping from model output indices to
             MNIST digit labels.
 
@@ -98,7 +98,7 @@ def test_eval_classifier_with_digit_classifier(
     """
     report, cm = eval_classifier(
         model=digit_classifier,
-        test_loader=test_loader,
+        eval_loader=eval_loader,
         index_to_label=index_to_label,
     )
 
@@ -120,7 +120,7 @@ def test_eval_classifier_with_digit_classifier(
 
 def test_eval_classifier_confusion_matrix_totals(
     digit_classifier: DigitClassifier,
-    test_loader: DataLoader,
+    eval_loader: DataLoader,
     index_to_label: dict[int, int],
 ) -> None:
     """
@@ -132,7 +132,7 @@ def test_eval_classifier_confusion_matrix_totals(
 
     Args:
         digit_classifier (DigitClassifier): The trained classifier under test.
-        test_loader (DataLoader): DataLoader providing the evaluation dataset.
+        eval_loader (DataLoader): DataLoader providing the evaluation dataset.
         index_to_label (dict[int, int]): Mapping of internal class indices to original labels.
 
     Returns:
@@ -140,13 +140,13 @@ def test_eval_classifier_confusion_matrix_totals(
     """
     report, cm = eval_classifier(
         model=digit_classifier,
-        test_loader=test_loader,
+        eval_loader=eval_loader,
         index_to_label=index_to_label,
     )
 
-    # Get expected class distribution from test_loader
+    # Get expected class distribution from eval_loader
     all_labels = []
-    for _, labels in test_loader:
+    for _, labels in eval_loader:
         all_labels.extend(labels.tolist())
 
     expected_counts = torch.bincount(

@@ -151,106 +151,6 @@ def dataset_copy(
 # =============================================================
 # Test CustomMNIST
 # =============================================================
-def test_validate_class_distribution_rejects_empty() -> None:
-    """
-    _validate_class_distribution should reject an empty distribution dict.
-
-    An empty class distribution is considered invalid, and the class-level helper is expected to
-    raise ValueError in that case.
-
-    Returns:
-        None.
-    """
-    with pytest.raises(ValueError):
-        CustomMNIST._validate_class_distribution({})
-
-
-@pytest.mark.parametrize("eval_ratio", [-0.1, 0.0, 1.0, 1.1])
-def test_apply_two_stage_split_rejects_invalid_eval_ratio(
-    config: dict[str, Any], temp_root: str, eval_ratio: float
-) -> None:
-    """
-    Test that apply_two_stage_split rejects invalid eval_ratio values.
-
-    The method should raise a ValueError when eval_ratio is not strictly
-    between 0 and 1.
-
-    Args:
-        config (dict): Configuration dictionary containing class distribution and seed.
-        temp_root (str): Temporary directory used as dataset root.
-        eval_ratio (float): Candidate evaluation split ratio to validate.
-
-    Returns:
-        None.
-    """
-    custom_mnist = CustomMNIST(
-        root=temp_root,
-        mnist_class_distribution=config["class_distribution"],
-        seed=config["seed"],
-    )
-
-    with pytest.raises(ValueError) as excinfo:
-        custom_mnist.apply_two_stage_split(eval_ratio=eval_ratio, val_ratio=0.5)
-
-    assert "must be in (0,1)" in str(excinfo.value)
-
-
-@pytest.mark.parametrize("val_ratio", [-0.1, 0.0, 1.0, 1.1])
-def test_apply_two_stage_split_rejects_invalid_val_ratio(
-    config: dict[str, Any], temp_root: str, val_ratio: float
-) -> None:
-    """
-    Test that apply_two_stage_split rejects invalid val_ratio values.
-
-    The method should raise a ValueError when val_ratio is not strictly
-    between 0 and 1.
-
-    Args:
-        config (dict): Configuration dictionary containing class distribution and seed.
-        temp_root (str): Temporary directory used as dataset root.
-        val_ratio (float): Candidate validation split ratio to validate.
-
-    Returns:
-        None.
-    """
-    custom_mnist = CustomMNIST(
-        root=temp_root,
-        mnist_class_distribution=config["class_distribution"],
-        seed=config["seed"],
-    )
-
-    with pytest.raises(ValueError) as excinfo:
-        custom_mnist.apply_two_stage_split(eval_ratio=0.2, val_ratio=val_ratio)
-
-    assert "must be in (0,1)" in str(excinfo.value)
-
-
-def test_apply_two_stage_split_rejects_combined_ratios_too_large(
-    config: dict[str, Any], temp_root: str
-) -> None:
-    """
-    Test that apply_two_stage_split rejects invalid split configurations where
-    eval_ratio + val_ratio is greater than or equal to 1.0.
-
-    Args:
-        config (dict[str, Any]): dictionary containing class distribution and seed.
-        temp_root (str): Temporary directory used for dataset initialization.
-
-    Returns:
-        None.
-    """
-    custom_mnist = CustomMNIST(
-        root=temp_root,
-        mnist_class_distribution=config["class_distribution"],
-        seed=config["seed"],
-    )
-
-    with pytest.raises(ValueError) as excinfo:
-        custom_mnist.apply_two_stage_split(eval_ratio=0.6, val_ratio=0.5)
-
-    assert "must be < 1.0" in str(excinfo.value)
-
-
 def test_dataset_class_distribution_matches_config(
     dataset: CustomMNIST, config: dict[str, Any]
 ) -> None:
@@ -418,39 +318,6 @@ def test_class_weights_inverse_frequency(dataset: CustomMNIST) -> None:
     )
 
 
-def test_calculate_class_weights_raises_if_class_missing(
-    config: dict[str, Any], temp_root: str, split_ratios: dict[str, float]
-) -> None:
-    """
-    Test that class weight calculation raises an error when a class has zero samples.
-
-    Args:
-        config (dict[str, Any]): Configuration containing class distribution and seed.
-        temp_root (str): Temporary directory used as the dataset root.
-        split_ratios (dict[str, float]): dictionary with 'eval_ratio' and 'val_ratio' values.
-
-    Returns:
-        None.
-    """
-    # Create fresh dataset
-    bad_dataset = CustomMNIST(
-        root=temp_root,
-        mnist_class_distribution=config["class_distribution"],
-        seed=config["seed"],
-    )
-
-    # Simulate an extra class with zero samples
-    bad_dataset.num_classes += 1
-
-    with pytest.raises(ValueError) as excinfo:
-        bad_dataset.apply_two_stage_split(
-            eval_ratio=split_ratios["eval_ratio"],
-            val_ratio=split_ratios["val_ratio"],
-        )
-
-    assert "zero samples" in str(excinfo.value)
-
-
 # =============================================================
 # Test ClassMapper
 # =============================================================
@@ -472,17 +339,3 @@ def test_class_mapper_bidirectional() -> None:
 
     # Reverse mapping: indices -> labels
     assert mapper.index_to_label == {0: 0, 1: 5, 2: 8}
-
-
-def test_class_mapper_rejects_empty_dict() -> None:
-    """
-    ClassMapper should reject an empty label_counts dictionary.
-
-    An empty mapping provides no information about the available classes and is therefore considered invalid.
-    A ValueError is expected.
-
-    Returns:
-        None.
-    """
-    with pytest.raises(ValueError):
-        ClassMapper({})

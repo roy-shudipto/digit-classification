@@ -97,7 +97,7 @@ class DigitClassifier(LightningModule):
         self.acc = MulticlassAccuracy(num_classes=num_classes, average="macro")
         self.f1 = MulticlassF1Score(num_classes=num_classes, average="macro")
 
-    def configure_optimizers(self):
+    def configure_optimizers(self) -> dict:
         """
         Set up the optimizer and LR scheduler.
 
@@ -163,7 +163,7 @@ class DigitClassifier(LightningModule):
             self.acc.update(preds, y)
             self.f1.update(preds, y)
 
-        self.log(f"{stage}_loss", loss, prog_bar=True)
+        self.log(f"{stage}_loss", loss)
 
         return loss
 
