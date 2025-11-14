@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import torch
 from collections import Counter
@@ -112,6 +113,30 @@ class CustomMNIST(MNIST):
         self.val_dataset = None
         self.eval_dataset = None
         self.class_weights_tensor = None
+
+    @property
+    def raw_folder(self) -> str:
+        """
+        Override to use 'MNIST' folder instead of 'CustomMNIST'.
+
+        Returns:
+            str: The path to the raw MNIST data directory, resolved as `<root>/MNIST/raw`.
+            This ensures consistency with torchvision's standard MNIST layout and prevents
+            folder names derived from the subclass (e.g., "CustomMNIST").
+        """
+        return os.path.join(self.root, "MNIST", "raw")
+
+    @property
+    def processed_folder(self) -> str:
+        """
+        Override to use 'MNIST' folder instead of 'CustomMNIST'.
+
+        Returns:
+            str: The path to the processed MNIST data directory, resolved as `<root>/MNIST/processed`.
+            This ensures consistency with torchvision's standard MNIST layout and prevents
+            folder names derived from the subclass (e.g., "CustomMNIST").
+        """
+        return os.path.join(self.root, "MNIST", "processed")
 
     @staticmethod
     def _validate_class_distribution(class_dist: dict[int, int]) -> None:
