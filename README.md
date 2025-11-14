@@ -104,7 +104,7 @@ Output: [B, 3] logits
 ## Quick Start (on Linux)
 ### 1. Create and activate virtual environment
 ```bash
-python3 -m venv .venv
+python3.12 -m venv .venv
 source .venv/bin/activate
 ```
 
