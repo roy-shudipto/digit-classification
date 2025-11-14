@@ -3,7 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from lightning.pytorch import LightningModule
 from torchmetrics.classification import MulticlassAccuracy, MulticlassF1Score
-from typing import Tuple, Union
 
 
 class DigitClassifier(LightningModule):
@@ -22,7 +21,7 @@ class DigitClassifier(LightningModule):
         self,
         num_classes: int,
         lr: float,
-        mnist_class_distribution: dict,
+        mnist_class_distribution: dict[int, int],
         index_to_label: dict,
         seed: int,
         eval_ratio: float,
@@ -40,7 +39,7 @@ class DigitClassifier(LightningModule):
 
             lr (float): Learning rate used by the optimizer.
 
-            mnist_class_distribution (dict): Dictionary describing the class frequencies in the
+            mnist_class_distribution (dict[int, int]): Dictionary describing the class frequencies in the
                 custom MNIST subset.
 
             index_to_label (dict): Mapping from internal class indices to the original MNIST
@@ -136,7 +135,7 @@ class DigitClassifier(LightningModule):
         return logits
 
     def _step(
-        self, batch: Tuple[torch.Tensor, torch.Tensor], stage: str
+        self, batch: tuple[torch.Tensor, torch.Tensor], stage: str
     ) -> torch.Tensor:
         """
         Shared logic for training and validation steps.
@@ -169,7 +168,7 @@ class DigitClassifier(LightningModule):
         return loss
 
     def training_step(
-        self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int
+        self, batch: tuple[torch.Tensor, torch.Tensor], batch_idx: int
     ) -> torch.Tensor:
         """
         Perform a single training step.
@@ -184,7 +183,7 @@ class DigitClassifier(LightningModule):
         return self._step(batch, "train")
 
     def validation_step(
-        self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int
+        self, batch: tuple[torch.Tensor, torch.Tensor], batch_idx: int
     ) -> torch.Tensor:
         """
         Perform a single validation step.
@@ -216,7 +215,7 @@ class DigitClassifier(LightningModule):
 
     def predict_step(
         self,
-        batch: Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor],
+        batch: tuple[torch.Tensor, torch.Tensor] | torch.Tensor,
         batch_idx: int,
     ) -> torch.Tensor:
         """

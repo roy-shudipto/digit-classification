@@ -174,7 +174,7 @@ class CustomMNIST(MNIST):
                     f"Invalid count for class {class_label}: must be a positive int (got {class_count})."
                 )
 
-    def _apply_transformation(self, indices: list[int]):
+    def _apply_transformation(self, indices: list[int]) -> None:
         """
         Compute train-only normalization statistics and apply a consistent
         transform to all dataset splits.
@@ -304,7 +304,7 @@ class CustomMNIST(MNIST):
         )
 
         # Apply transformation
-        self._apply_transformation(train_indices)
+        self._apply_transformation(train_indices.tolist())
 
         # Calculate Class Weights
         all_train_val_indices = np.concatenate([train_indices, val_indices])

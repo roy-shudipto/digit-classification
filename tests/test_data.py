@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 import torch
 from collections import Counter
-from typing import Any, Dict
+from typing import Any
 
 from digit_classification.data import ClassMapper, CustomMNIST
 
@@ -37,7 +37,7 @@ def md5_image(image: np.ndarray | torch.Tensor) -> str:
         {"class_distribution": {7: 30, 2: 20, 9: 40}, "seed": 3000},
     ]
 )
-def config(request) -> Dict[str, Any]:
+def config(request) -> dict[str, Any]:
     """
     Parameterized configuration for CustomMNIST tests.
 
@@ -49,7 +49,7 @@ def config(request) -> Dict[str, Any]:
         request: The built-in pytest request fixture used to access the current parameter set.
 
     Returns:
-        Dict[str, Any]: A configuration dictionary for constructing CustomMNIST instances.
+        dict[str, Any]: A configuration dictionary for constructing CustomMNIST instances.
     """
     return request.param
 
@@ -72,12 +72,12 @@ def temp_root(tmp_path) -> str:
 
 
 @pytest.fixture
-def split_ratios() -> Dict[str, float]:
+def split_ratios() -> dict[str, float]:
     """
     Shared split ratios for the two-stage train/val/eval split.
 
     Returns:
-        Dict[str, float]: A dictionary with keys:
+        dict[str, float]: A dictionary with keys:
             - "eval_ratio": Proportion of the full dataset reserved for the evaluation subset.
             - "val_ratio": Proportion of the remaining training pool (after eval extraction) reserved
             for the validation subset.
@@ -87,15 +87,15 @@ def split_ratios() -> Dict[str, float]:
 
 @pytest.fixture
 def dataset(
-    config: Dict[str, Any], temp_root: str, split_ratios: Dict[str, float]
+    config: dict[str, Any], temp_root: str, split_ratios: dict[str, float]
 ) -> CustomMNIST:
     """
     Construct a CustomMNIST instance and apply the two-stage split.
 
     Args:
-        config (Dict[str, Any]): Parameters including the class distribution and seed.
+        config (dict[str, Any]): Parameters including the class distribution and seed.
         temp_root (str): Temporary directory to store MNIST data.
-        split_ratios (Dict[str, float]): Ratios for eval and validation splits.
+        split_ratios (dict[str, float]): Ratios for eval and validation splits.
 
     Returns:
         CustomMNIST: A dataset instance with train, validation, and evaluation subsets.
@@ -118,15 +118,15 @@ def dataset(
 
 @pytest.fixture
 def dataset_copy(
-    config: Dict[str, Any], temp_root: str, split_ratios: Dict[str, float]
+    config: dict[str, Any], temp_root: str, split_ratios: dict[str, float]
 ) -> CustomMNIST:
     """
     Construct a second CustomMNIST instance with identical configuration.
 
     Args:
-        config (Dict[str, Any]): Parameters including the class distribution and seed.
+        config (dict[str, Any]): Parameters including the class distribution and seed.
         temp_root (str): Temporary directory to store MNIST data.
-        split_ratios (Dict[str, float]): Ratios for eval and validation splits.
+        split_ratios (dict[str, float]): Ratios for eval and validation splits.
 
     Returns:
         CustomMNIST: A second dataset instance, independent of dataset but constructed with the
@@ -167,7 +167,7 @@ def test_validate_class_distribution_rejects_empty() -> None:
 
 @pytest.mark.parametrize("eval_ratio", [-0.1, 0.0, 1.0, 1.1])
 def test_apply_two_stage_split_rejects_invalid_eval_ratio(
-    config: Dict[str, Any], temp_root: str, eval_ratio: float
+    config: dict[str, Any], temp_root: str, eval_ratio: float
 ) -> None:
     """
     Test that apply_two_stage_split rejects invalid eval_ratio values.
@@ -197,7 +197,7 @@ def test_apply_two_stage_split_rejects_invalid_eval_ratio(
 
 @pytest.mark.parametrize("val_ratio", [-0.1, 0.0, 1.0, 1.1])
 def test_apply_two_stage_split_rejects_invalid_val_ratio(
-    config: Dict[str, Any], temp_root: str, val_ratio: float
+    config: dict[str, Any], temp_root: str, val_ratio: float
 ) -> None:
     """
     Test that apply_two_stage_split rejects invalid val_ratio values.
@@ -226,14 +226,14 @@ def test_apply_two_stage_split_rejects_invalid_val_ratio(
 
 
 def test_apply_two_stage_split_rejects_combined_ratios_too_large(
-    config: Dict[str, Any], temp_root: str
+    config: dict[str, Any], temp_root: str
 ) -> None:
     """
     Test that apply_two_stage_split rejects invalid split configurations where
     eval_ratio + val_ratio is greater than or equal to 1.0.
 
     Args:
-        config (Dict[str, Any]): Dictionary containing class distribution and seed.
+        config (dict[str, Any]): dictionary containing class distribution and seed.
         temp_root (str): Temporary directory used for dataset initialization.
 
     Returns:
@@ -252,14 +252,14 @@ def test_apply_two_stage_split_rejects_combined_ratios_too_large(
 
 
 def test_dataset_class_distribution_matches_config(
-    dataset: CustomMNIST, config: Dict[str, Any]
+    dataset: CustomMNIST, config: dict[str, Any]
 ) -> None:
     """
     Check that the realized class distribution matches the requested config.
 
     Args:
         dataset (CustomMNIST): The constructed dataset instance.
-        config (Dict[str, Any]): Configuration containing the requested class distribution.
+        config (dict[str, Any]): Configuration containing the requested class distribution.
 
     Returns:
         None.
@@ -311,8 +311,8 @@ def test_dataset_reproducible(dataset: CustomMNIST, dataset_copy: CustomMNIST) -
 
 def test_two_stage_split_sizes(
     dataset: CustomMNIST,
-    split_ratios: Dict[str, float],
-    config: Dict[str, Any],
+    split_ratios: dict[str, float],
+    config: dict[str, Any],
 ) -> None:
     """
     Verify that the two-stage split yields subsets of the expected sizes.
@@ -325,8 +325,8 @@ def test_two_stage_split_sizes(
 
     Args:
         dataset (CustomMNIST): Dataset instance that has already been split.
-        split_ratios (Dict[str, float]): Ratios for eval and validation splits.
-        config (Dict[str, Any]): Configuration containing class distribution.
+        split_ratios (dict[str, float]): Ratios for eval and validation splits.
+        config (dict[str, Any]): Configuration containing class distribution.
 
     Returns:
         None.
@@ -419,15 +419,15 @@ def test_class_weights_inverse_frequency(dataset: CustomMNIST) -> None:
 
 
 def test_calculate_class_weights_raises_if_class_missing(
-    config: Dict[str, Any], temp_root: str, split_ratios: Dict[str, float]
+    config: dict[str, Any], temp_root: str, split_ratios: dict[str, float]
 ) -> None:
     """
     Test that class weight calculation raises an error when a class has zero samples.
 
     Args:
-        config (Dict[str, Any]): Configuration containing class distribution and seed.
+        config (dict[str, Any]): Configuration containing class distribution and seed.
         temp_root (str): Temporary directory used as the dataset root.
-        split_ratios (Dict[str, float]): Dictionary with 'eval_ratio' and 'val_ratio' values.
+        split_ratios (dict[str, float]): dictionary with 'eval_ratio' and 'val_ratio' values.
 
     Returns:
         None.

@@ -92,7 +92,11 @@ def train(
         0.15, "--val-ratio", help="Validation split ratio (after eval split)."
     ),
     epochs: int = typer.Option(
-        20, "--epochs", min=1, max=20, help="Max training epochs."
+        20,
+        "--epochs",
+        min=1,
+        max=20,
+        help="Number of training epochs. Must be between 1 and 20.",
     ),
     learning_rate: float = typer.Option(
         1e-3, "--learning-rate", help="Learning rate for optimization."
@@ -175,7 +179,7 @@ def train(
         default_root_dir=out_dir,
         accelerator="cpu",
         deterministic=True,
-        max_epochs=min(epochs, 20),
+        max_epochs=epochs,
         callbacks=[checkpoint_callback, early_stopping],
         log_every_n_steps=10,
     )

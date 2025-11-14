@@ -1,7 +1,6 @@
 import torch
 from sklearn.metrics import classification_report, confusion_matrix
 from torch.utils.data import DataLoader
-from typing import Tuple, Dict
 
 from .model import DigitClassifier
 
@@ -9,8 +8,8 @@ from .model import DigitClassifier
 def eval_classifier(
     model: DigitClassifier,
     test_loader: DataLoader,
-    index_to_label: Dict[int, int],
-) -> Tuple[str, torch.Tensor]:
+    index_to_label: dict[int, int],
+) -> tuple[str, torch.Tensor]:
     """
     Evaluate a classifier on a test dataset and return a classification report
     and confusion matrix.
@@ -28,7 +27,7 @@ def eval_classifier(
             Example: {0: 0, 1: 5, 2: 8}.
 
     Returns:
-        Tuple[str, torch.Tensor]:
+        tuple[str, torch.Tensor]:
             - A formatted text classification report.
             - A confusion matrix as a torch.Tensor of shape [C, C].
     """

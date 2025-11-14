@@ -1,7 +1,6 @@
 import pytest
 import torch
 from torch.utils.data import TensorDataset, DataLoader
-from typing import Dict
 
 from digit_classification.evaluation import eval_classifier
 from digit_classification.model import DigitClassifier
@@ -11,24 +10,24 @@ from digit_classification.model import DigitClassifier
 # Fixtures for testing Evaluation
 # =============================================================
 @pytest.fixture
-def index_to_label() -> Dict[int, int]:
+def index_to_label() -> dict[int, int]:
     """
     Return a deterministic mapping from internal class indices to original MNIST labels.
 
     Returns:
-        Dict[int, int]: Keys are model class indices (0, 1, 2, ...), and values
+        dict[int, int]: Keys are model class indices (0, 1, 2, ...), and values
         are the corresponding MNIST digit labels.
     """
     return {0: 0, 1: 5, 2: 8}
 
 
 @pytest.fixture
-def digit_classifier(index_to_label: Dict[int, int]) -> DigitClassifier:
+def digit_classifier(index_to_label: dict[int, int]) -> DigitClassifier:
     """
     Instantiate a DigitClassifier.
 
     Args:
-        index_to_label (Dict[int, int]): Mapping from model output indices to
+        index_to_label (dict[int, int]): Mapping from model output indices to
             MNIST digit labels.
 
     Returns:
@@ -73,7 +72,7 @@ def test_loader() -> DataLoader:
 def test_eval_classifier_with_digit_classifier(
     digit_classifier: DigitClassifier,
     test_loader: DataLoader,
-    index_to_label: Dict[int, int],
+    index_to_label: dict[int, int],
 ) -> None:
     """
     Integration test ensuring eval_classifier runs end-to-end as expected.
@@ -88,7 +87,7 @@ def test_eval_classifier_with_digit_classifier(
     Args:
         digit_classifier (DigitClassifier): The classifier instance under test.
         test_loader (DataLoader): A dataloader providing synthetic evaluation data.
-        index_to_label (Dict[int, int]): Mapping from model output indices to
+        index_to_label (dict[int, int]): Mapping from model output indices to
             MNIST digit labels.
 
     Returns:
@@ -122,7 +121,7 @@ def test_eval_classifier_with_digit_classifier(
 def test_eval_classifier_confusion_matrix_totals(
     digit_classifier: DigitClassifier,
     test_loader: DataLoader,
-    index_to_label: Dict[int, int],
+    index_to_label: dict[int, int],
 ) -> None:
     """
     Test that the confusion matrix computed by eval_classifier has consistent totals.
@@ -134,7 +133,7 @@ def test_eval_classifier_confusion_matrix_totals(
     Args:
         digit_classifier (DigitClassifier): The trained classifier under test.
         test_loader (DataLoader): DataLoader providing the evaluation dataset.
-        index_to_label (Dict[int, int]): Mapping of internal class indices to original labels.
+        index_to_label (dict[int, int]): Mapping of internal class indices to original labels.
 
     Returns:
         None.
