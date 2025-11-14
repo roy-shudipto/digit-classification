@@ -8,8 +8,6 @@ from digit_classification.model import DigitClassifier
 # =============================================================
 # Fixtures
 # =============================================================
-
-
 @pytest.fixture
 def index_to_label() -> dict[int, int]:
     """Simple mapping from internal indices to original MNIST labels."""
@@ -70,30 +68,34 @@ def digit_classifier_with_weights(index_to_label: dict[int, int]) -> DigitClassi
 
 
 # =============================================================
-# Basic sanity tests
+# Tests
 # =============================================================
-
-
 def test_configure_optimizers_returns_adam(digit_classifier: DigitClassifier) -> None:
     """
-    Test that configure_optimizers initializes an Adam optimizer with the correct settings.
+    Test that configure_optimizers returns the correct optimizer and scheduler setup.
 
     This test verifies that:
-      - The optimizer returned by the model is an instance of torch.optim.Adam.
-      - PyTorch Lightning correctly stores the model's hyperparameters in self.hparams,
-        ensuring reproducibility and checkpoint compatibility.
-
-    Args:
-        digit_classifier (DigitClassifier): The classifier instance under test.
-
-    Returns:
-        None.
+      - The returned dictionary contains an Adam optimizer.
+      - The scheduler is a ReduceLROnPlateau.
+      - Lightning hyperparameters are stored correctly in self.hparams.
     """
-    opt = digit_classifier.configure_optimizers()
+    config = digit_classifier.configure_optimizers()
 
-    assert isinstance(opt, torch.optim.Adam)
+    # Extract optimizer and scheduler
+    optimizer = config["optimizer"]
+    scheduler_config = config["lr_scheduler"]
+    scheduler = scheduler_config["scheduler"]
 
-    # Hyperparameters should be saved by Lightning
+    # Check optimizer type
+    assert isinstance(optimizer, torch.optim.Adam)
+
+    # Check scheduler type
+    assert isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau)
+
+    # Check monitored metric name
+    assert scheduler_config["monitor"] == "val_f1_macro"
+
+    # Hyperparameters should be tracked by Lightning
     assert digit_classifier.hparams.num_classes == digit_classifier.num_classes
     assert digit_classifier.hparams.lr == digit_classifier.lr
 

@@ -10,8 +10,6 @@ from digit_classification.model import DigitClassifier
 # =============================================================
 # Fixtures
 # =============================================================
-
-
 @pytest.fixture
 def index_to_label() -> Dict[int, int]:
     """
@@ -72,8 +70,6 @@ def test_loader() -> DataLoader:
 # =============================================================
 # Tests
 # =============================================================
-
-
 def test_eval_classifier_with_digit_classifier(
     digit_classifier: DigitClassifier,
     test_loader: DataLoader,

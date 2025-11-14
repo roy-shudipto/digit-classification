@@ -58,6 +58,10 @@ class DigitClassifier(LightningModule):
 
             class_weights (torch.Tensor | None): Optional 1D tensor of length `num_classes`
                 specifying class weights for the cross-entropy loss to mitigate imbalance.
+                    NOTE: Class weights are NOT saved in checkpoints (excluded from hyperparameters).
+                    This is intentional because:
+                    - During training: weights are used to compute weighted loss
+                    - During evaluation/prediction: weights are not needed (no loss computation)
         """
         super().__init__()
 
@@ -94,14 +98,27 @@ class DigitClassifier(LightningModule):
         self.acc = MulticlassAccuracy(num_classes=num_classes, average="macro")
         self.f1 = MulticlassF1Score(num_classes=num_classes, average="macro")
 
-    def configure_optimizers(self) -> torch.optim.Optimizer:
+    def configure_optimizers(self):
         """
-        Configure and return the optimizer for training.
+        Set up the optimizer and LR scheduler.
+
+        Uses Adam for optimization and a ReduceLROnPlateau scheduler that lowers
+        the learning rate when the monitored metric ("val_f1_macro") stops improving.
 
         Returns:
-            torch.optim.Optimizer: The Adam optimizer initialized with the model's learning rate.
+            dict: Contains the optimizer and scheduler configuration for Lightning.
         """
-        return torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode="max", factor=0.5, patience=2
+        )
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "monitor": "val_f1_macro",
+            },
+        }
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """

@@ -59,13 +59,10 @@ def download_data(
     )
 ) -> None:
     """
-    Download the MNIST dataset.
+    Download the MNIST dataset (train).
 
     Args:
         data_dir (str): Directory where MNIST will be stored.
-
-    This downloads only the training split (Lightning/PyTorch automatically
-    downloads the test set as needed).
     """
     datasets.MNIST(root=data_dir, train=True, download=True)
     typer.echo(f"MNIST dataset successfully downloaded to: {data_dir}")
@@ -86,20 +83,20 @@ def train(
         11122025, "--seed", help="Random seed for dataset sampling."
     ),
     eval_ratio: float = typer.Option(
-        0.20, "--eval_ratio", help="Evaluation set ratio (from full dataset)."
+        0.20, "--eval-ratio", help="Evaluation set ratio (from full dataset)."
     ),
     val_ratio: float = typer.Option(
-        0.15, "--val_ratio", help="Validation split ratio (after eval split)."
+        0.15, "--val-ratio", help="Validation split ratio (after eval split)."
     ),
     epochs: int = typer.Option(
         20, "--epochs", min=1, max=20, help="Max training epochs."
     ),
     learning_rate: float = typer.Option(
-        1e-3, "--learning_rate", help="Learning rate for optimization."
+        1e-3, "--learning-rate", help="Learning rate for optimization."
     ),
     batch_size: int = typer.Option(32, "--batch-size", min=4, help="Batch size."),
     num_workers: int = typer.Option(
-        4, "--num_workers", min=0, help="Number of DataLoader worker processes."
+        4, "--num-workers", min=0, help="Number of DataLoader worker processes."
     ),
 ) -> None:
     """
@@ -197,7 +194,7 @@ def evaluate(
     ),
     data_dir: str = typer.Option(..., "--data-dir", help="Directory containing MNIST."),
     batch_size: int = typer.Option(32, "--batch-size", min=4),
-    num_workers: int = typer.Option(4, "--num_workers", min=0),
+    num_workers: int = typer.Option(4, "--num-workers", min=0),
 ) -> None:
     """
     Evaluate a trained model on the validation set.
@@ -229,7 +226,7 @@ def evaluate(
     )
 
     eval_loader = DataLoader(
-        custom_mnist.val_dataset,
+        custom_mnist.eval_dataset,
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
@@ -298,7 +295,14 @@ def predict(
         raise typer.Exit(code=1)
 
     # Preprocess
-    x = transform(img).unsqueeze(0)  # [1, 1, 28, 28]
+    try:
+        x = transform(img).unsqueeze(0)
+        # Quick sanity check
+        if x.shape != torch.Size([1, 1, 28, 28]):
+            raise ValueError(f"Expected shape [1, 1, 28, 28], got {x.shape}")
+    except Exception as e:
+        typer.secho(f"Error: failed to preprocess image: {e}", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
 
     # Prediction
     with torch.no_grad():

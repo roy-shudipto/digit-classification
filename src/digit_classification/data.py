@@ -8,33 +8,6 @@ from torchvision import transforms
 from torchvision.datasets import MNIST
 
 
-class ClassMapper:
-    """
-    Provides a bidirectional mapping between the original dataset labels (e.g., MNIST digits 0, 5, 8)
-    and the corresponding model class indices (0, 1, 2).
-    """
-
-    def __init__(self, label_counts: dict[int, int]) -> None:
-        if not label_counts:
-            raise ValueError("label_counts dictionary cannot be empty.")
-
-        # Create contiguous indices based on sorted label order (e.g.: 0->0, 3->1, 8->2)
-        self.label_to_index: dict[int, int] = {
-            label: idx for idx, label in enumerate(sorted(label_counts.keys()))
-        }
-
-        # Reverse lookup: index -> original label (e.g.: 0->0, 1->3, 2->8)
-        self.index_to_label: dict[int, int] = {
-            idx: label for label, idx in self.label_to_index.items()
-        }
-
-    def __repr__(self) -> str:
-        return (
-            f"ClassMapper: (label_to_index={self.label_to_index}, "
-            f"index_to_label={self.index_to_label})"
-        )
-
-
 class CustomMNIST(MNIST):
     """
     A MNIST variant that keeps only specified classes with exact sample counts.
@@ -233,6 +206,11 @@ class CustomMNIST(MNIST):
             raise ValueError(f"eval_ratio must be in (0,1), got {eval_ratio}")
         if not (0 < val_ratio < 1):
             raise ValueError(f"val_ratio must be in (0,1), got {val_ratio}")
+        if eval_ratio + val_ratio >= 1.0:
+            raise ValueError(
+                f"eval_ratio ({eval_ratio}) + val_ratio ({val_ratio}) must be < 1.0 "
+                f"to leave data for training"
+            )
 
         # Prepare labels/indices
         targets = np.asarray(self.targets)
@@ -279,4 +257,31 @@ class CustomMNIST(MNIST):
         logger.info(
             f"Evaluation distribution after mapping: "
             f"{dict(sorted(Counter(self.targets[eval_indices].tolist()).items()))}"
+        )
+
+
+class ClassMapper:
+    """
+    Provides a bidirectional mapping between the original dataset labels (e.g., MNIST digits 0, 5, 8)
+    and the corresponding model class indices (0, 1, 2).
+    """
+
+    def __init__(self, label_counts: dict[int, int]) -> None:
+        if not label_counts:
+            raise ValueError("label_counts dictionary cannot be empty.")
+
+        # Create contiguous indices based on sorted label order (e.g.: 0->0, 3->1, 8->2)
+        self.label_to_index: dict[int, int] = {
+            label: idx for idx, label in enumerate(sorted(label_counts.keys()))
+        }
+
+        # Reverse lookup: index -> original label (e.g.: 0->0, 1->3, 2->8)
+        self.index_to_label: dict[int, int] = {
+            idx: label for label, idx in self.label_to_index.items()
+        }
+
+    def __repr__(self) -> str:
+        return (
+            f"ClassMapper: (label_to_index={self.label_to_index}, "
+            f"index_to_label={self.index_to_label})"
         )
