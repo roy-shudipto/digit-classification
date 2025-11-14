@@ -7,13 +7,12 @@ from torchmetrics.classification import MulticlassAccuracy, MulticlassF1Score
 
 class DigitClassifier(LightningModule):
     """
-    A PyTorch Lightning module implementing a convolutional neural network for multiclass
-    digit classification.
+    A PyTorch Lightning module implementing a convolutional neural network for multiclass digit classification.
 
     The architecture includes:
     - Two convolutional blocks, each with batch normalization, ReLU activation, and max pooling.
     - A fully connected output layer for classification.
-    - Optional per-class weighting to address class imbalance.
+    - Per-class weighting to address class imbalance.
     - Macro-averaged accuracy and F1-score computed during validation.
     """
 
@@ -36,31 +35,22 @@ class DigitClassifier(LightningModule):
         Args:
             num_classes (int): Number of output classes after remapping MNIST labels into a
                 contiguous range [0, num_classes - 1].
-
             lr (float): Learning rate used by the optimizer.
-
             mnist_class_distribution (dict[int, int]): Dictionary describing the class frequencies in the
-                custom MNIST subset.
-
+                custom MNIST dataset.
             index_to_label (dict): Mapping from internal class indices to the original MNIST
                 labels (e.g., {0: 0, 1: 5, 2: 8}).
-
             seed (int): Random seed for deterministic dataset subsampling.
-
             eval_ratio (float): Proportion of the sampled dataset allocated to the evaluation split.
-
             val_ratio (float): Fraction of the evaluation split reserved for validation.
-
             mean (float): Mean used for input normalization.
-
             std (float): Standard deviation used for input normalization.
-
-            class_weights (torch.Tensor | None): Optional 1D tensor of length `num_classes`
+            class_weights (torch.Tensor | None): Optional 1D tensor of the length of num_classes
                 specifying class weights for the cross-entropy loss to mitigate imbalance.
-                    NOTE: Class weights are NOT saved in checkpoints (excluded from hyperparameters).
-                    This is intentional because:
-                    - During training: weights are used to compute weighted loss
-                    - During evaluation/prediction: weights are not needed (no loss computation)
+                NOTE: Class weights are NOT saved in checkpoints (excluded from hyperparameters).
+                This is intentional because:
+                - During training: weights are used to compute weighted loss
+                - During evaluation/prediction: weights are not needed (no loss computation)
         """
         super().__init__()
 
@@ -75,7 +65,7 @@ class DigitClassifier(LightningModule):
         self.std = std
         self.class_weights = class_weights
 
-        # Save hyperparameters except for the (potentially large) weights tensor
+        # Save hyperparameters except for the weights tensor
         self.save_hyperparameters(ignore=["class_weights"])
 
         # Convolutional feature extractor
@@ -101,11 +91,8 @@ class DigitClassifier(LightningModule):
         """
         Set up the optimizer and LR scheduler.
 
-        Uses Adam for optimization and a ReduceLROnPlateau scheduler that lowers
-        the learning rate when the monitored metric ("val_f1_macro") stops improving.
-
         Returns:
-            dict: Contains the optimizer and scheduler configuration for Lightning.
+            dict: Contains the optimizer and scheduler configuration.
         """
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -124,14 +111,15 @@ class DigitClassifier(LightningModule):
         Perform a forward pass through the network.
 
         Args:
-            x (torch.Tensor): Input tensor of shape [B, 1, 28, 28].
+            x (torch.Tensor): Input tensor of shape [Batch, 1, 28, 28].
 
         Returns:
-            torch.Tensor: Logits of shape [B, num_classes].
+            torch.Tensor: Logits of shape [Batch, num_classes].
         """
         z = self.net(x)
         z = z.view(z.size(0), -1)
         logits = self.fc(z)
+
         return logits
 
     def _step(
@@ -167,30 +155,24 @@ class DigitClassifier(LightningModule):
 
         return loss
 
-    def training_step(
-        self, batch: tuple[torch.Tensor, torch.Tensor], batch_idx: int
-    ) -> torch.Tensor:
+    def training_step(self, batch: tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
         """
         Perform a single training step.
 
         Args:
             batch (tuple): The input batch containing (x, y).
-            batch_idx (int): Index of the current batch within the training epoch.
 
         Returns:
             torch.Tensor: The computed training loss.
         """
         return self._step(batch, "train")
 
-    def validation_step(
-        self, batch: tuple[torch.Tensor, torch.Tensor], batch_idx: int
-    ) -> torch.Tensor:
+    def validation_step(self, batch: tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
         """
         Perform a single validation step.
 
         Args:
             batch (tuple): The input batch containing (x, y).
-            batch_idx (int): Index of the current batch within the validation epoch.
 
         Returns:
             torch.Tensor: The computed validation loss.
@@ -216,14 +198,12 @@ class DigitClassifier(LightningModule):
     def predict_step(
         self,
         batch: tuple[torch.Tensor, torch.Tensor] | torch.Tensor,
-        batch_idx: int,
     ) -> torch.Tensor:
         """
         Generate probability predictions for inference.
 
         Args:
             batch (tuple or torch.Tensor): The input batch. Can be (x, y) or just x.
-            batch_idx (int): Index of the current batch within the prediction loop.
 
         Returns:
             torch.Tensor: Probability distributions over classes for each sample.

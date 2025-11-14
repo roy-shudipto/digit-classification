@@ -181,7 +181,7 @@ def test_training_step_returns_scalar_loss(
     x = torch.randn(batch_size, 1, 28, 28)
     y = torch.randint(0, digit_classifier_no_logging.num_classes, (batch_size,))
 
-    loss = digit_classifier_no_logging.training_step((x, y), batch_idx=0)
+    loss = digit_classifier_no_logging.training_step((x, y))
 
     assert isinstance(loss, torch.Tensor)
     assert loss.dim() == 0
@@ -209,7 +209,7 @@ def test_training_step_uses_class_weights_returns_scalar_loss(
     x = torch.randn(batch_size, 1, 28, 28)
     y = torch.randint(0, digit_classifier_no_logging.num_classes, (batch_size,))
 
-    loss = digit_classifier_no_logging.training_step((x, y), batch_idx=0)
+    loss = digit_classifier_no_logging.training_step((x, y))
 
     assert isinstance(loss, torch.Tensor)
     assert loss.dim() == 0
@@ -233,7 +233,7 @@ def test_backward_pass_computes_gradients(
     y = torch.randint(0, digit_classifier_no_logging.num_classes, (batch_size,))
 
     digit_classifier_no_logging.zero_grad()
-    loss = digit_classifier_no_logging.training_step((x, y), batch_idx=0)
+    loss = digit_classifier_no_logging.training_step((x, y))
     loss.backward()
 
     # Verify gradients exist
@@ -274,7 +274,7 @@ def test_validation_step_updates_metrics_consistently(
     expected_f1 = ref_f1.compute()
 
     # Run the actual validation step, which should update the model's metrics.
-    digit_classifier_no_logging.validation_step((x, y), batch_idx=0)
+    digit_classifier_no_logging.validation_step((x, y))
 
     model_acc = digit_classifier_no_logging.acc.compute()
     model_f1 = digit_classifier_no_logging.f1.compute()
@@ -323,7 +323,7 @@ def test_on_validation_epoch_end_logs_and_resets_metrics(
     x = torch.randn(batch_size, 1, 28, 28)
     y = torch.randint(0, digit_classifier.num_classes, (batch_size,))
 
-    digit_classifier.validation_step((x, y), batch_idx=0)
+    digit_classifier.validation_step((x, y))
 
     # Before reset, metrics should not have been logged
     assert "val_acc_macro" not in logged
@@ -362,7 +362,7 @@ def test_predict_step_returns_probabilities(digit_classifier: DigitClassifier) -
     batch_size = 5
     x = torch.randn(batch_size, 1, 28, 28)
 
-    probs = digit_classifier.predict_step(x, batch_idx=0)
+    probs = digit_classifier.predict_step(x)
 
     assert isinstance(probs, torch.Tensor)
     assert probs.shape == (batch_size, digit_classifier.num_classes)
@@ -391,7 +391,7 @@ def test_predict_step_accepts_tuple_batch(digit_classifier: DigitClassifier) -> 
     x = torch.randn(batch_size, 1, 28, 28)
     y = torch.randint(0, digit_classifier.num_classes, (batch_size,))
 
-    probs_from_x = digit_classifier.predict_step(x, batch_idx=0)
-    probs_from_tuple = digit_classifier.predict_step((x, y), batch_idx=0)
+    probs_from_x = digit_classifier.predict_step(x)
+    probs_from_tuple = digit_classifier.predict_step((x, y))
 
     assert torch.allclose(probs_from_x, probs_from_tuple)

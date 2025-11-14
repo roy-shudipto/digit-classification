@@ -22,7 +22,7 @@ MNIST_CLASS_DISTRIBUTION = {8: 3500, 0: 1200, 5: 300}
 # ---------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------
-def ensure_file(path_str: str) -> Path:
+def validate_file_path(path_str: str) -> Path:
     """
     Validate that a file path exists and is a regular file.
 
@@ -30,7 +30,7 @@ def ensure_file(path_str: str) -> Path:
         path_str (str): Path provided by the user.
 
     Returns:
-        Path: A validated and resolved Path object.
+        Path: A validated Path object.
 
     Raises:
         typer.Exit: If the file does not exist or is not a file.
@@ -61,8 +61,7 @@ def download_data(
     Download the MNIST training dataset into the specified directory.
 
     Args:
-        data_dir (str): Directory where the MNIST data will be stored. If the
-            dataset is already present, it will not be downloaded again.
+        data_dir (str): Directory where the MNIST data will be stored.
 
     Returns:
         None.
@@ -107,7 +106,7 @@ def train(
     ),
 ) -> None:
     """
-    Train a convolutional digit classifier on a custom MNIST subset.
+    Train a convolutional digit classifier on a custom MNIST dataset.
 
     This command:
       - Builds a CustomMNIST dataset with a fixed class distribution.
@@ -159,7 +158,7 @@ def train(
         class_weights=custom_mnist.class_weights_tensor,
     )
 
-    # Configure checkpoints + early stopping
+    # Configure checkpoints and early stopping
     checkpoint_callback = ModelCheckpoint(
         dirpath=out_dir,
         save_top_k=1,
@@ -225,7 +224,7 @@ def evaluate(
     The command:
       - Validates and loads a saved checkpoint.
       - Reconstructs the dataset using the same class distribution, seed, and
-        split ratios that were used during training.
+            split ratios that were used during training.
       - Runs eval_classifier to compute metrics and the confusion matrix.
       - Prints the classification report and confusion matrix to terminal.
 
@@ -239,7 +238,7 @@ def evaluate(
         None.
     """
     # Check checkpoint file
-    ckpt_path = ensure_file(checkpoint_path)
+    ckpt_path = validate_file_path(checkpoint_path)
 
     # Load Lightning checkpoint safely
     try:
@@ -261,6 +260,7 @@ def evaluate(
         eval_ratio=model.eval_ratio, val_ratio=model.val_ratio
     )
 
+    # Create the evaluation DataLoader
     eval_loader = DataLoader(
         custom_mnist.eval_dataset,
         batch_size=batch_size,
@@ -273,6 +273,7 @@ def evaluate(
         model, eval_loader, index_to_label=model.index_to_label
     )
 
+    # Display the evaluation report and confusion matrix
     typer.echo(report)
     typer.echo(f"Confusion matrix:\n{cm}")
 
@@ -295,11 +296,9 @@ def predict(
     The command:
       - Validates the checkpoint and image paths.
       - Restores the trained DigitClassifier from the checkpoint.
-      - Applies the same preprocessing pipeline used during training
-        (grayscale, resize to 28x28, normalization).
+      - Applies a preprocessing step.
       - Runs a forward pass to obtain class probabilities.
-      - Prints a JSON object containing per-class probabilities and the
-        predicted digit label.
+      - Prints a JSON object containing per-class probabilities and the predicted digit label.
 
     Args:
         checkpoint_path (str): Path to the trained model checkpoint (.ckpt file).
@@ -309,8 +308,8 @@ def predict(
         None.
     """
     # Validate both paths
-    ckpt_path = ensure_file(checkpoint_path)
-    img_path = ensure_file(input_path)
+    ckpt_path = validate_file_path(checkpoint_path)
+    img_path = validate_file_path(input_path)
 
     # Load trained model
     try:
@@ -322,17 +321,17 @@ def predict(
         )
         raise typer.Exit(code=1)
 
-    # Preprocessing identical to training
+    # Define transform for preprocessing
     transform = T.Compose(
         [
-            T.Grayscale(),  # ensure 1 channel
-            T.Resize((28, 28)),  # match training resolution
-            T.ToTensor(),  # normalize to [0,1]
+            T.Grayscale(),
+            T.Resize((28, 28)),
+            T.ToTensor(),
             T.Normalize((model.mean,), (model.std,)),
         ]
     )
 
-    # Load image safely
+    # Load the input image
     try:
         img = Image.open(img_path)
     except Exception as e:
@@ -349,7 +348,7 @@ def predict(
         typer.secho(f"Error: failed to preprocess image: {e}", fg=typer.colors.RED)
         raise typer.Exit(code=1)
 
-    # Prediction
+    # Run prediction
     with torch.no_grad():
         logits = model(x)
         probs_tensor = torch.softmax(logits, dim=1).squeeze(0)
@@ -360,6 +359,7 @@ def predict(
     # Map internal indices to original digit labels
     probs_dict = {str(model.index_to_label[i]): probs[i] for i in range(len(probs))}
 
+    # Produce and display final JSON output
     output = {
         "probs": probs_dict,
         "prediction": model.index_to_label[pred_idx],

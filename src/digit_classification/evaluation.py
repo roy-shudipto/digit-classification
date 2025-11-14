@@ -11,20 +11,12 @@ def eval_classifier(
     index_to_label: dict[int, int],
 ) -> tuple[str, torch.Tensor]:
     """
-    Evaluate a classifier on the eval-dataset and return a classification report
-    and confusion matrix.
+    Evaluate a classifier on the eval-dataset and return a classification report and confusion matrix.
 
     Args:
-        model (DigitClassifier):
-            A trained PyTorch DigitClassifier model.
-
-        eval_loader (DataLoader):
-            A DataLoader yielding batches of (inputs, targets), where targets
-            are integer class indices in the range 0 to C-1.
-
-        index_to_label (dict[int, int]):
-            Mapping from contiguous model class indices to original dataset labels.
-            Example: {0: 0, 1: 5, 2: 8}.
+        model (DigitClassifier): A trained DigitClassifier model.
+        eval_loader (DataLoader): A DataLoader for evaluation yielding batches of (inputs, targets).
+        index_to_label (dict[int, int]): Mapping from contiguous model class indices to original dataset labels.
 
     Returns:
         tuple[str, torch.Tensor]:
