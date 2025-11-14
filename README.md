@@ -102,17 +102,16 @@ Output: [B, 3] logits
 ---
 
 ## Quick Start (on Linux)
-
-### 1. Clone the repository
-```bash
-git clone https://github.com/roy-shudipto/digit-classification.git
-cd digit-classification
-```
-
-### 2. Create and activate virtual environment
+### 1. Create and activate virtual environment
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
+```
+
+### 2. Clone the repository
+```bash
+git clone https://github.com/roy-shudipto/digit-classification.git
+cd digit-classification
 ```
 
 ### 3. Install package
